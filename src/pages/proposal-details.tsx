@@ -234,8 +234,8 @@ export default function ProposalDetails() {
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Status</h3>
               <div className="space-y-2">
-                <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(proposalDetails.status, 'proposals')}`}>
-                  {translateStatus(proposalDetails.status, 'proposals')}
+                <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(proposalDetails.status || '', 'proposals')}`}>
+                  {translateStatus(proposalDetails.status || '', 'proposals')}
                 </span>
               </div>
             </div>
@@ -259,8 +259,8 @@ export default function ProposalDetails() {
               <p className="text-gray-900 font-mono">{proposalDetails.company_id || 'N/A'}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ID do Cliente</label>
-              <p className="text-gray-900 font-mono">{proposalDetails.customer_id || 'N/A'}</p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Cliente</label>
+              <p className="text-gray-900 font-mono">{proposalDetails.customer_name || 'N/A'}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">ID do Veículo</label>

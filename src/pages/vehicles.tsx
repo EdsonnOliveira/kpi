@@ -437,8 +437,8 @@ export default function Vehicles() {
                   {formatCurrency(vehicle.price)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(vehicle.status, 'vehicles')}`}>
-                    {translateStatus(vehicle.status, 'vehicles')}
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(vehicle.status || '')}`}>
+                    {translateStatus(vehicle.status || '', 'vehicles')}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -677,7 +677,7 @@ export default function Vehicles() {
 
       {/* Formulário de Criação/Edição */}
       {isCreatingNew && (
-        <ResponsiveCard ref={editFormRef} className="mb-6">
+        <ResponsiveCard className="mb-6">
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {isEditing ? 'Editar Veículo' : 'Novo Veículo'}

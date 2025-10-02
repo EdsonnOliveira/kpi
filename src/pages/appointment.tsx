@@ -1031,7 +1031,7 @@ export default function Appointment() {
                 );
                 
                 if (uploadResults[0]?.success && uploadResults[0]?.data) {
-                  termoAssinadoPath = uploadResults[0].data.file_path;
+                  termoAssinadoPath = uploadResults[0].data.url || '';
                 } else {
                   alert('Erro ao fazer upload do termo assinado: ' + (uploadResults[0]?.error || 'Erro desconhecido'));
                   return;
@@ -1860,7 +1860,6 @@ export default function Appointment() {
 
                 {/* Lista de Histórico */}
                 <div className="space-y-4">
-                  {console.log('Renderizando histórico de contatos. Total:', contactHistory.length, 'Contatos:', contactHistory)}
                   {contactHistory.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <svg className="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

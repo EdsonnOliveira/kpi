@@ -275,8 +275,8 @@ export default function ServiceOrderDetails() {
                 <p><span className="font-medium text-gray-900">Mecânico:</span> <span className="text-gray-900">{serviceOrderDetails.mecanico}</span></p>
                 <p><span className="font-medium text-gray-900">Tipo:</span> <span className="text-gray-900">{serviceOrderDetails.tipo}</span></p>
                 <p><span className="font-medium text-gray-900">Status:</span> 
-                  <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(serviceOrderDetails.status, 'service_orders')}`}>
-                    {translateServiceOrderStatus(serviceOrderDetails.status)}
+                  <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(serviceOrderDetails.status || '')}`}>
+                    {translateServiceOrderStatus(serviceOrderDetails.status || '')}
                   </span>
                 </p>
               </div>

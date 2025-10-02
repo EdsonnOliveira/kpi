@@ -267,8 +267,8 @@ export default function ScheduleDetails() {
               {/* Status */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Status</h3>
-                <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(scheduleDetails.status, 'vehicles')}`}>
-                  {translateStatus(scheduleDetails.status, 'vehicles')}
+                <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(scheduleDetails.status || '')}`}>
+                  {translateStatus(scheduleDetails.status || '', 'vehicles')}
                 </span>
               </div>
             </div>

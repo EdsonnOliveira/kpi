@@ -40,9 +40,10 @@ const AutocompleteInput = forwardRef<HTMLInputElement, AutocompleteInputProps>(
 
     // Filtrar opções baseado no valor do input
     useEffect(() => {
-      if (props.value && typeof props.value === 'string' && props.value.length > 0) {
+      const value = props.value;
+      if (value && typeof value === 'string' && value.length > 0) {
         const filtered = options.filter(option =>
-          option.toLowerCase().includes(props.value.toString().toLowerCase())
+          option.toLowerCase().includes(value.toLowerCase())
         );
         setFilteredOptions(filtered);
         setIsOpen(filtered.length > 0);
