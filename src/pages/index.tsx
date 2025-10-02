@@ -98,9 +98,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Seção da esquerda com background */}
-      <div className="flex-1 relative">
+    <div className="min-h-screen flex relative">
+      {/* Background para desktop */}
+      <div className="hidden md:flex flex-1 relative">
         <Image
           src="/bg.jpg"
           alt="Background"
@@ -120,16 +120,31 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Seção da direita com formulário */}
-      <div className="w-1/3 min-w-[400px] bg-white flex flex-col justify-center items-center px-12">
+      {/* Background para mobile */}
+      <div className="md:hidden absolute inset-0">
+        <Image
+          src="/bg.jpg"
+          alt="Background"
+          fill
+          className="object-cover"
+          priority
+        />
+        {/* Overlay azul escuro */}
+        <div className="absolute inset-0 bg-secondary-overlay"></div>
+      </div>
+
+      {/* Seção do formulário */}
+      <div className="w-full md:w-1/3 md:min-w-[400px] bg-white md:bg-white flex flex-col justify-center items-center px-6 md:px-12 relative z-10 md:relative">
         <div className="w-full">
           {/* Logo */}
-          <div className="mb-12 text-center">
-            <h1 className="text-3xl font-bold text-primary">Novo KPI</h1>
+          <div className="mb-8 md:mb-12 text-center">
+            <h1 className="text-2xl md:text-3xl font-bold text-primary">Novo KPI</h1>
           </div>
 
           {/* Formulário */}
-          <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-sm">
+          <div className="w-full max-w-sm mx-auto">
+            <div className="bg-white/95 md:bg-transparent backdrop-blur-sm md:backdrop-blur-none rounded-lg md:rounded-none p-6 md:p-0">
+              <form onSubmit={handleSubmit} className="space-y-6 w-full">
             {/* Exibir erro se houver */}
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -201,23 +216,25 @@ export default function LoginPage() {
             >
               {isLoading ? "Entrando..." : "Entrar"}
             </button>
-          </form>
+              </form>
+            </div>
 
-          {/* Links adicionais */}
-          <div className="mt-8 space-y-3 text-center">
-            <a href="#" className="block text-sm text-gray-600 hover:text-gray-800">
-              Atendimento online
-            </a>
-            <a href="#" className="block text-sm text-gray-600 hover:text-gray-800">
-              Acesso remoto
-            </a>
-          </div>
+            {/* Links adicionais */}
+            <div className="mt-6 md:mt-8 space-y-3 text-center">
+              <a href="#" className="block text-sm text-gray-600 hover:text-gray-800">
+                Atendimento online
+              </a>
+              <a href="#" className="block text-sm text-gray-600 hover:text-gray-800">
+                Acesso remoto
+              </a>
+            </div>
 
-          {/* Versão do build */}
-          <div className="mt-auto pt-8 text-center">
-            <p className="text-xs text-gray-400">
-              Version Build: 24/09/2025, 13:18:59
-            </p>
+            {/* Versão do build */}
+            <div className="mt-6 md:mt-auto pt-4 md:pt-8 text-center">
+              <p className="text-xs text-gray-400">
+                Version Build: 24/09/2025, 13:18:59
+              </p>
+            </div>
           </div>
         </div>
       </div>
