@@ -1,40 +1,141 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# Novo KPI
 
-## Getting Started
+O Novo KPI é um sistema ERP especializado para o setor automotivo, desenvolvido para atender as necessidades de concessionárias, oficinas, revendas e locadoras de veículos. Ele integra diferentes áreas operacionais em uma única plataforma, permitindo controle centralizado e otimizado dos processos de gestão.
 
-First, run the development server:
+## 📌 Funcionalidades Principais
 
+### 🚗 Gestão de Veículos
+- Cadastro completo de veículos (novos, seminovos, usados)
+- Controle de estoque e rastreabilidade de movimentações
+- Histórico de revisões, manutenções e negociações
+
+### 🔧 Oficina e Serviços
+- Abertura e acompanhamento de Ordens de Serviço (OS)
+- Controle de peças e insumos
+- Gestão de mão de obra e tempo de execução
+
+### 💰 Financeiro
+- Controle de contas a pagar e receber
+- Integração com bancos e meios de pagamento
+- Emissão de notas fiscais eletrônicas (NF-e, NFS-e)
+
+### 📊 Vendas e CRM
+- Gestão de leads e oportunidades
+- Simulações de financiamento e consórcio
+- Registro de propostas, orçamentos e contratos
+
+### 📈 Relatórios e BI
+- Dashboards em tempo real para análise de desempenho
+- Relatórios financeiros, operacionais e de vendas
+- Indicadores de produtividade e rentabilidade
+
+## 🎯 Objetivo
+
+O Novo KPI foi criado para automatizar e integrar processos do setor automotivo, reduzindo falhas manuais, aumentando a eficiência operacional e melhorando a experiência do cliente.
+
+## 🔧 Público-Alvo
+
+- **Concessionárias**
+- **Oficinas mecânicas**
+- **Revendas de veículos novos e usados**
+- **Locadoras de veículos**
+- **Empresas de frotas corporativas**
+
+## 📦 Benefícios
+
+- ✅ Redução de custos operacionais
+- ✅ Visibilidade completa da operação em um só sistema
+- ✅ Conformidade fiscal e tributária
+- ✅ Melhoria no relacionamento com clientes
+
+## 🚀 Tecnologias Utilizadas
+
+- **Frontend**: Next.js 15.5.4, React 19.1.0, TypeScript
+- **Styling**: Tailwind CSS 4
+- **Linting**: ESLint
+- **Build Tool**: Next.js
+
+## 📋 Pré-requisitos
+
+- Node.js (versão 18 ou superior)
+- npm ou yarn
+
+## 🛠️ Instalação
+
+1. Clone o repositório:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <url-do-repositorio>
+cd kpi
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Instale as dependências:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+3. Execute o projeto em modo de desenvolvimento:
+```bash
+npm run dev
+```
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+4. Acesse a aplicação em [http://localhost:3000](http://localhost:3000)
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+## 📁 Estrutura do Projeto
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── pages/
+│   ├── index.tsx          # Página de login
+│   ├── dashboard.tsx      # Dashboard principal
+│   ├── _app.tsx          # Configuração global da aplicação
+│   └── _document.tsx     # Configuração do documento HTML
+├── styles/
+│   └── globals.css       # Estilos globais e variáveis CSS
+public/
+├── bg.jpg               # Imagem de background do login
+└── ...                  # Outros assets
+```
 
-## Learn More
+## 🎨 Design System
 
-To learn more about Next.js, take a look at the following resources:
+O projeto utiliza um design system consistente com as seguintes cores:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
+- **Cor Primária**: `#5CBEF5` (azul claro)
+- **Cor Secundária**: `#0C1F2B` (azul escuro)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📝 Scripts Disponíveis
 
-## Deploy on Vercel
+- `npm run dev` - Inicia o servidor de desenvolvimento
+- `npm run build` - Gera a build de produção
+- `npm run start` - Inicia o servidor de produção
+- `npm run lint` - Executa o linter
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🔐 Autenticação
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+O sistema possui uma página de login integrada que redireciona para o dashboard após a autenticação. A validação atual é básica e pode ser expandida conforme necessário.
+
+## 📱 Responsividade
+
+A aplicação é totalmente responsiva e se adapta a diferentes tamanhos de tela, garantindo uma experiência otimizada em dispositivos móveis, tablets e desktops.
+
+## 🤝 Contribuição
+
+Para contribuir com o projeto:
+
+1. Faça um fork do repositório
+2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
+3. Commit suas mudanças (`git commit -m 'Adiciona nova feature'`)
+4. Push para a branch (`git push origin feature/nova-feature`)
+5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+## 📞 Suporte
+
+Para suporte técnico ou dúvidas sobre o sistema, entre em contato através dos canais oficiais.
+
+---
+
+**Desenvolvido com ❤️ para o setor automotivo brasileiro**# kpi
