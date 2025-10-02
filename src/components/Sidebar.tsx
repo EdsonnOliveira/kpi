@@ -104,6 +104,8 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
 
   // Carregar dados do usuário
   useEffect(() => {
@@ -346,10 +348,10 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
               variant="ghost"
               size="sm"
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-2 rounded-full hover:bg-white/10"
+              className="p-2 rounded-full hover:bg-white/10 flex items-center justify-center"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isCollapsed ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"} />
               </svg>
             </Button>
           </div>
@@ -363,19 +365,37 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
                 <button
                   onClick={() => {
                     if (item.children) {
+                      if (isCollapsed) {
+                        return;
+                      }
                       toggleExpanded(item.name);
                     } else {
                       handleNavigation(item.name);
                     }
                   }}
-                  className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors cursor-pointer group relative ${
+                  onMouseEnter={(e) => {
+                    if (isCollapsed && item.children) {
+                      setHoveredItem(item.name);
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setMousePosition({ x: rect.left, y: rect.top + 200 });
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (isCollapsed && item.children) {
+                      setHoveredItem(null);
+                      setMousePosition(null);
+                    }
+                  }}
+                  className={`w-full flex items-center rounded-lg transition-colors cursor-pointer group relative ${
+                    isCollapsed ? 'justify-center p-3' : 'justify-between p-4'
+                  } ${
                     isActivePage(item.name) 
                       ? 'bg-primary text-white' 
                       : 'hover:bg-white/10'
                   }`}
                   title={isCollapsed ? item.label : undefined}
                 >
-                  <div className="flex items-center space-x-3">
+                  <div className={`flex items-center ${isCollapsed ? '' : 'space-x-3'}`}>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
                     </svg>
@@ -383,7 +403,7 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
                   </div>
                   
                   {/* Tooltip para sidebar colapsado */}
-                  {isCollapsed && (
+                  {isCollapsed && !item.children && (
                     <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
                       {item.label}
                       <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 rotate-45"></div>
@@ -402,6 +422,35 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
                     </svg>
                   )}
                 </button>
+
+                {/* Submenu para sidebar colapsado */}
+                {isCollapsed && item.children && hoveredItem === item.name && mousePosition && (
+                  <div className="absolute left-full bg-gray-900 rounded-lg shadow-lg py-2 z-50 min-w-48"
+                       style={{ top: `${mousePosition.y - 200}px` }}
+                       onMouseEnter={() => setHoveredItem(item.name)}
+                       onMouseLeave={() => {
+                         setHoveredItem(null);
+                         setMousePosition(null);
+                       }}>
+                    <div className="px-3 py-2 text-white text-sm font-medium border-b border-gray-700">
+                      {item.label}
+                    </div>
+                    {item.children.map((child) => (
+                      <button
+                        key={child.name}
+                        onClick={() => handleNavigation(child.name)}
+                        className={`w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-gray-800 transition-colors ${
+                          isActivePage(child.name) ? 'bg-primary/20 text-primary' : 'text-white'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={child.icon} />
+                        </svg>
+                        <span className="text-sm">{child.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Submenu */}
                 {item.children && isExpanded(item.name) && !isCollapsed && (
@@ -452,7 +501,7 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
             variant="ghost"
             fullWidth
             onClick={handleLogout}
-            className="justify-start hover:bg-white/10 !text-white"
+            className={`hover:bg-white/10 !text-white ${isCollapsed ? 'justify-center' : 'justify-start'}`}
             leftIcon={
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
