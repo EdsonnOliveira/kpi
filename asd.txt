@@ -1,0 +1,18 @@
+1- Veículo de Interesse
+  - Quando está em estoque, tem o carro
+  - Vai listar os veículos que estao para NEGOCIO, ou seja,
+    veículos de clientes que colocaram em (Dados do Veículo - Avaliacao)
+
+2- Fila de espera
+  - Não tem o carro;
+  - Adicionar input COR
+  - Adicionar input Faixa de VALOR
+  - Vai listar os veículos que estao para NEGOCIO, ou seja,
+    veículos de clientes que colocaram em (Dados do Veículo - Avaliacao)
+
+3- Dados do Veículo (Avaliacao)
+  - Veículo do cliente
+  - Usado para avaliar
+  - Usado para complementar o valor do Veículo de Interesse/Fila de espera
+  - Enviar para precificação: quando clicar, aparecer os campos para colocar
+    as fotos do veículo.

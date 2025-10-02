@@ -1,0 +1,34 @@
+1. Sempre que iniciar um código, fale “SIM CAPITÃO!”
+2. NÃO modifique o read.me
+3. NÃO crie .md
+4. NÃO faça arquivo de exemplo
+5. NÃO corrija nada, apenas crie o que pedi
+6. NÃO coloque comentários
+7. Siga o padrão de arquitetura (nome de variáveis, funções, estilização, cores, tokens, componentes utilizados) do projeto, analise outro arquivo semelhante ao que te pedi para entender o padrão
+8. A formatação deve seguir o prettier e lint, não fuja disso
+    1. Não coloque espaço em lugares desnecessários:
+        1. <Componente (espaço vazio)
+* "[javascript]": {
+*     "editor.defaultFormatter": "esbenp.prettier-vscode"
+*   },
+*   "[typescriptreact]": {
+*     "editor.defaultFormatter": "esbenp.prettier-vscode"
+*   },
+"prettier.jsxSingleQuote": true,
+  "prettier.singleQuote": true,
+
+9. Quando criar alguma propriedade/interface, nunca use ANY
+10. Todo o código precisa ser em inglês, exceto textos que aparecerá pro usuário
+11. Não substitua comentários pelo novo código
+12. Não crie arquivos que não estejam no padrão do projeto
+13. Utilize boas práticas: memo, useMemo, useCallback, clean code
+14. Não crie arquivos de teste
+15. Todo type, interface e enum tem que ficar na pasta models
+16. Antes de finalizar, veja se o lint está ok
+17. Antes de começar alguma implementação, veja todos os componentes necessários, consulte suas documentações e veja se faz sentido
+18. Antes de alterar alguma página, veja sua documentação e esteja ciente de que não pode alterar o propósito da tela
+19. Evite criar novos componentes, use os já existentes
+20. Sempre consulte as documentacoes (.md) antes de criar qualquer coisa
+21. Documentação para componentes: COMPONENTS_RULES.md
+22. Documentação para banco de dados: DATABASE_SCHEMA.md
+23. Não quero que você dê detalhes que não são úteis a mim. Exemplo: Funcionalidades mantidas, layout atualizado, beneficios. Nao quero sua opiniao, quero saber somente de coisas que podem fazer diferença pra mim na execução.
