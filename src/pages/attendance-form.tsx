@@ -355,7 +355,7 @@ export default function AttendanceForm() {
         return;
       }
 
-      let finalFormData = { ...formData };
+      const finalFormData = { ...formData };
 
       if (isQueueEnabled) {
         finalFormData.queue_brand = formData.brand;
@@ -551,7 +551,7 @@ export default function AttendanceForm() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     
-    let processedValue = value;
+    const processedValue = value;
     
     setFormData(prev => {
       const updatedData = {
