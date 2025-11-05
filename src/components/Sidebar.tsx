@@ -194,7 +194,7 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
             variant="ghost"
             size="sm"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="text-white hover:bg-white hover:bg-opacity-10"
+            className="text-white hover:bg-transparent"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {isMobileMenuOpen ? (
@@ -251,8 +251,8 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
                         handleNavigation(item.name);
                       }
                     }}
-                    className={`w-full flex items-center px-4 py-4 text-left hover:bg-white hover:bg-opacity-10 transition-colors ${
-                      isActivePage(item.name) ? 'bg-white bg-opacity-20' : ''
+                    className={`cursor-pointer w-full flex items-center px-4 py-4 text-left hover:opacity-10 transition-colors ${
+                      isActivePage(item.name) ? 'opacity-100' : 'opacity-50'
                     }`}
                   >
                     <svg className="w-5 h-5 text-white mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -269,13 +269,13 @@ export default function Sidebar({ onStateChange }: SidebarProps) {
                   </button>
                   
                   {item.children && expandedItems.includes(item.name) && (
-                    <div className="bg-black bg-opacity-20">
+                    <div>
                       {item.children.map((child) => (
                         <button
                           key={child.name}
                           onClick={() => handleNavigation(child.name)}
-                          className={`w-full flex items-center px-4 py-3 pl-12 text-left hover:bg-white hover:bg-opacity-10 transition-colors ${
-                            isActivePage(child.name) ? 'bg-white bg-opacity-20' : ''
+                          className={`w-full flex items-center px-4 py-3 pl-12 text-left hover:bg-opacity-10 transition-colors ${
+                            isActivePage(child.name) ? 'opacity-100' : 'opacity-50'
                           }`}
                         >
                           <svg className="w-4 h-4 text-white mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -47,6 +47,7 @@ export default function AttendanceForm() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isQueueEnabled, setIsQueueEnabled] = useState(false);
   
   // Estados para opções dinâmicas
   const [users, setUsers] = useState<{id: string, name: string}[]>([]);
@@ -314,8 +315,8 @@ export default function AttendanceForm() {
 
   const tabs = [
     { id: "agendamentos", label: "Agendamentos" },
-    { id: "bolsao-cliente", label: "Bolsão de Cliente" },
-    { id: "bolsao-tradein", label: "Bolsão de Trade In" },
+    { id: "bolsao-cliente", label: "Fila de espera" },
+    { id: "bolsao-tradein", label: "Troca" },
     { id: "vendas-perdidas", label: "Vendas Perdidas" }
   ];
 
@@ -354,16 +355,22 @@ export default function AttendanceForm() {
         return;
       }
 
-      // Validar faixa de preço se ambos os campos estiverem preenchidos
-      if (formData.queue_price_from && formData.queue_price_to && !validatePriceRange(formData.queue_price_from, formData.queue_price_to)) {
+      let finalFormData = { ...formData };
+
+      if (isQueueEnabled) {
+        finalFormData.queue_brand = formData.brand;
+        finalFormData.queue_model = formData.model;
+      }
+
+      if (finalFormData.queue_price_from && finalFormData.queue_price_to && !validatePriceRange(finalFormData.queue_price_from, finalFormData.queue_price_to)) {
         setError("O valor DE deve ser menor que o valor ATÉ na fila de espera.");
         return;
       }
       
       const dataToSave = {
-        ...formData,
+        ...finalFormData,
         company_id: user.company_id,
-        year: formData.year ? parseInt(formData.year.toString()) : null
+        year: finalFormData.year ? parseInt(finalFormData.year.toString()) : null
       };
       
       let response;
@@ -401,12 +408,12 @@ export default function AttendanceForm() {
     }
   };
 
-  // Função para editar registro
   const editRecord = (record: AttendanceFormData) => {
     setFormData(record);
     setSelectedRecord(record.id || null);
     setIsEditing(true);
     setIsCreatingNew(true);
+    setIsQueueEnabled(!!(record.queue_brand || record.queue_model));
   };
 
   // Função para deletar registro
@@ -441,7 +448,6 @@ export default function AttendanceForm() {
     }
   };
 
-  // Função para resetar formulário
   const resetForm = () => {
     setFormData({
       customer_name: "",
@@ -466,6 +472,7 @@ export default function AttendanceForm() {
       status: "pending",
       notes: ""
     });
+    setIsQueueEnabled(false);
   };
 
   // Função para cancelar edição/criação
@@ -546,15 +553,22 @@ export default function AttendanceForm() {
     
     let processedValue = value;
     
-    // Aplicar máscara de moeda para campos de preço
-    if (name === 'queue_price_from' || name === 'queue_price_to') {
-      processedValue = formatCurrency(value);
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : processedValue
-    }));
+    setFormData(prev => {
+      const updatedData = {
+        ...prev,
+        [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : processedValue
+      };
+
+      if (isQueueEnabled && (name === 'brand' || name === 'model')) {
+        if (name === 'brand') {
+          updatedData.queue_brand = processedValue;
+        } else if (name === 'model') {
+          updatedData.queue_model = processedValue;
+        }
+      }
+
+      return updatedData;
+    });
 
     // Aplicar filtros em cascata APENAS quando uma opção é selecionada (não ao digitar)
     if (name === 'brand' || name === 'model' || name === 'year') {
@@ -632,6 +646,25 @@ export default function AttendanceForm() {
     cancelForm();
   };
 
+  const handleQueueCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setIsQueueEnabled(checked);
+    
+    if (checked) {
+      setFormData(prev => ({
+        ...prev,
+        queue_brand: prev.brand,
+        queue_model: prev.model
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        queue_brand: "",
+        queue_model: ""
+      }));
+    }
+  };
+
   const renderTable = () => {
     switch (activeTab) {
       case "agendamentos":
@@ -694,7 +727,7 @@ export default function AttendanceForm() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {getFilteredData("Bolsão Cliente").map((item) => (
+                {attendanceForms.filter(form => form.queue_brand || form.queue_model).map((item) => (
                   <tr 
                     key={item.id}
                     onClick={() => handleRecordClick(item.id || '')}
@@ -743,7 +776,7 @@ export default function AttendanceForm() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {getFilteredData("Trade In").map((item) => (
+                {getFilteredData("Troca").map((item) => (
                   <tr 
                     key={item.id}
                     onClick={() => handleRecordClick(item.id || '')}
@@ -1033,7 +1066,14 @@ export default function AttendanceForm() {
 
               {/* Detalhes do veículo */}
               <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Detalhes do Veículo</h4>
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-lg font-medium text-gray-900">Detalhes do Veículo</h4>
+                  <Checkbox
+                    label="Colocar na fila de espera"
+                    checked={isQueueEnabled}
+                    onChange={handleQueueCheckboxChange}
+                  />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <AutocompleteInput
                     label="Marca"
@@ -1085,77 +1125,6 @@ export default function AttendanceForm() {
                 </div>
               </div>
 
-              {/* Fila de espera */}
-              <div>
-                <h4 className="text-lg font-bold text-gray-900 mb-4">Fila de espera</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <AutocompleteInput
-                    label="Marca"
-                    type="text"
-                    name="queue_brand"
-                    value={formData.queue_brand}
-                    onChange={handleInputChange}
-                    placeholder="Buscar marca"
-                    options={vehicleSearchData.brands}
-                  />
-                  <AutocompleteInput
-                    label="Modelo"
-                    type="text"
-                    name="queue_model"
-                    value={formData.queue_model}
-                    onChange={handleInputChange}
-                    placeholder="Buscar modelo"
-                    options={vehicleSearchData.models}
-                  />
-                  <AutocompleteInput
-                    label="Versão"
-                    type="text"
-                    name="queue_version"
-                    value={formData.queue_version}
-                    onChange={handleInputChange}
-                    placeholder="Buscar versão"
-                    options={['1.0', '1.4', '1.6', '1.8', '2.0', '2.4', 'Híbrido', 'Elétrico', 'Turbo', 'Sport']}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                  <AutocompleteInput
-                    label="Cor"
-                    type="text"
-                    name="queue_color"
-                    value={formData.queue_color}
-                    onChange={handleInputChange}
-                    placeholder="Buscar cor"
-                    options={colors}
-                  />
-                  <div>
-                    <Input
-                      label="Valor DE"
-                      type="text"
-                      name="queue_price_from"
-                      value={formData.queue_price_from}
-                      onChange={handleInputChange}
-                      placeholder="R$ 0,00"
-                    />
-                    {formData.queue_price_from && formData.queue_price_to && !validatePriceRange(formData.queue_price_from, formData.queue_price_to) && (
-                      <p className="text-red-500 text-sm mt-1">O valor DE deve ser menor que o valor ATÉ</p>
-                    )}
-                  </div>
-                  <div>
-                    <Input
-                      label="Valor ATÉ"
-                      type="text"
-                      name="queue_price_to"
-                      value={formData.queue_price_to}
-                      onChange={handleInputChange}
-                      placeholder="R$ 0,00"
-                    />
-                    {formData.queue_price_from && formData.queue_price_to && !validatePriceRange(formData.queue_price_from, formData.queue_price_to) && (
-                      <p className="text-red-500 text-sm mt-1">O valor DE deve ser menor que o valor ATÉ</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* Data de agendamento e status */}
               <div>
                 <h4 className="text-lg font-medium text-gray-900 mb-4">Agendamento e Status</h4>
@@ -1166,7 +1135,6 @@ export default function AttendanceForm() {
                     name="appointment_date"
                     value={formData.appointment_date}
                     onChange={handleInputChange}
-                    required
                   />
                   <Select
                     label="Status"
@@ -1188,7 +1156,7 @@ export default function AttendanceForm() {
                     value={formData.type}
                     onChange={handleInputChange}
                     placeholder="Buscar tipo"
-                    options={['Agendamento', 'Bolsão Cliente', 'Trade In', 'Venda Perdida']}
+                    options={['Agendamento', 'Fila de espera', 'Troca', 'Venda Perdida']}
                     required
                   />
                 </div>
