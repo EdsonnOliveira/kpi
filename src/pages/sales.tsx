@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Input from "../components/Input";
 import Select from "../components/Select";
 import Button from "../components/Button";
+import Checkbox from "../components/Checkbox";
 import ResponsivePage from "../components/ResponsivePage";
 import ResponsiveCard from "../components/ResponsiveCard";
 import ResponsiveTable, { 
@@ -75,7 +76,19 @@ export default function Sales() {
     notes: "",
     next_contact_date: "",
     priority: "medium",
-    user_id: ""
+    user_id: "",
+    payment_method: "",
+    payment_amount: "",
+    payment_date: "",
+    change_amount: "",
+    invoice_issue: false,
+    trade_in_vehicle_id: "",
+    trade_in_vehicle_description: "",
+    trade_in_value: "",
+    lien_amount: "",
+    lien_description: "",
+    tax_amount: "",
+    tax_type: ""
   });
 
   // Configurações do Supabase
@@ -214,7 +227,12 @@ export default function Sales() {
         sale_price: formData.sale_price ? parseFloat(formData.sale_price.toString()) : null,
         commission: formData.commission ? parseFloat(formData.commission.toString()) : null,
         margin: formData.margin ? parseFloat(formData.margin.toString()) : null,
-        sale_date: formData.sale_date || new Date().toISOString().split('T')[0]
+        sale_date: formData.sale_date || new Date().toISOString().split('T')[0],
+        payment_amount: formData.payment_amount ? parseFloat(formData.payment_amount.toString()) : null,
+        change_amount: formData.change_amount ? parseFloat(formData.change_amount.toString()) : null,
+        trade_in_value: formData.trade_in_value ? parseFloat(formData.trade_in_value.toString()) : null,
+        lien_amount: formData.lien_amount ? parseFloat(formData.lien_amount.toString()) : null,
+        tax_amount: formData.tax_amount ? parseFloat(formData.tax_amount.toString()) : null
       };
       
       let response;
@@ -278,7 +296,19 @@ export default function Sales() {
       notes: sale.notes,
       next_contact_date: sale.next_contact_date,
       priority: sale.priority,
-      user_id: sale.user_id
+      user_id: sale.user_id,
+      payment_method: (sale as any).payment_method || "",
+      payment_amount: (sale as any).payment_amount ? (sale as any).payment_amount.toString() : "",
+      payment_date: (sale as any).payment_date || "",
+      change_amount: (sale as any).change_amount ? (sale as any).change_amount.toString() : "",
+      invoice_issue: (sale as any).invoice_issue || false,
+      trade_in_vehicle_id: (sale as any).trade_in_vehicle_id || "",
+      trade_in_vehicle_description: (sale as any).trade_in_vehicle_description || "",
+      trade_in_value: (sale as any).trade_in_value ? (sale as any).trade_in_value.toString() : "",
+      lien_amount: (sale as any).lien_amount ? (sale as any).lien_amount.toString() : "",
+      lien_description: (sale as any).lien_description || "",
+      tax_amount: (sale as any).tax_amount ? (sale as any).tax_amount.toString() : "",
+      tax_type: (sale as any).tax_type || ""
     });
     setSelectedSale(sale.id);
     setIsEditing(true);
@@ -351,7 +381,19 @@ export default function Sales() {
       notes: "",
       next_contact_date: "",
       priority: "medium",
-      user_id: ""
+      user_id: "",
+      payment_method: "",
+      payment_amount: "",
+      payment_date: "",
+      change_amount: "",
+      invoice_issue: false,
+      trade_in_vehicle_id: "",
+      trade_in_vehicle_description: "",
+      trade_in_value: "",
+      lien_amount: "",
+      lien_description: "",
+      tax_amount: "",
+      tax_type: ""
     });
   };
 
@@ -427,25 +469,7 @@ export default function Sales() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Aqui seria a lógica para salvar a venda
-    console.log("Dados da venda:", formData);
-    setIsCreatingNew(false);
-    setFormData({
-      customer_name: "",
-      vehicle_id: "",
-      vehicle_description: "",
-      sale_price: "",
-      status: "pending",
-      sale_date: "",
-      sale_type: "",
-      commission: "",
-      margin: "",
-      source: "",
-      notes: "",
-      next_contact_date: "",
-      priority: "",
-      user_id: ""
-    });
+    saveSale();
   };
 
   const renderSalesTable = () => {
@@ -609,6 +633,168 @@ export default function Sales() {
               <option value="cancelled">Cancelada</option>
               <option value="lost">Perdida</option>
             </Select>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6">
+            <h4 className="text-md font-semibold text-gray-900 mb-4">Dados de Pagamento</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Select
+                label="Forma de Pagamento"
+                name="payment_method"
+                value={formData.payment_method}
+                onChange={(e) => setFormData({...formData, payment_method: e.target.value})}
+              >
+                <option value="">Selecione a forma</option>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">PIX</option>
+                <option value="cartao_debito">Cartão de Débito</option>
+                <option value="cartao_credito">Cartão de Crédito</option>
+                <option value="transferencia">Transferência Bancária</option>
+                <option value="cheque">Cheque</option>
+                <option value="financiamento">Financiamento</option>
+              </Select>
+              <Input
+                label="Valor Pago"
+                type="text"
+                name="payment_amount"
+                value={formData.payment_amount}
+                onChange={(e) => {
+                  const maskedValue = applyCurrencyMask(e.target.value);
+                  setFormData({...formData, payment_amount: maskedValue});
+                }}
+                onBlur={(e) => {
+                  const numericValue = removeCurrencyMask(e.target.value);
+                  setFormData({...formData, payment_amount: numericValue});
+                }}
+                placeholder="0,00"
+              />
+              <Input
+                label="Data do Pagamento"
+                type="date"
+                name="payment_date"
+                value={formData.payment_date}
+                onChange={(e) => setFormData({...formData, payment_date: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6">
+            <h4 className="text-md font-semibold text-gray-900 mb-4">Informações Adicionais</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Checkbox
+                label="Emitir Nota Fiscal"
+                checked={formData.invoice_issue}
+                onChange={(e) => setFormData({...formData, invoice_issue: e.target.checked})}
+              />
+              <Input
+                label="Troco"
+                type="text"
+                name="change_amount"
+                value={formData.change_amount}
+                onChange={(e) => {
+                  const maskedValue = applyCurrencyMask(e.target.value);
+                  setFormData({...formData, change_amount: maskedValue});
+                }}
+                onBlur={(e) => {
+                  const numericValue = removeCurrencyMask(e.target.value);
+                  setFormData({...formData, change_amount: numericValue});
+                }}
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6">
+            <h4 className="text-md font-semibold text-gray-900 mb-4">Veículo na Troca</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Input
+                label="Descrição do Veículo na Troca"
+                type="text"
+                name="trade_in_vehicle_description"
+                value={formData.trade_in_vehicle_description}
+                onChange={(e) => setFormData({...formData, trade_in_vehicle_description: e.target.value})}
+                placeholder="Modelo do veículo na troca"
+              />
+              <Input
+                label="Valor do Veículo na Troca"
+                type="text"
+                name="trade_in_value"
+                value={formData.trade_in_value}
+                onChange={(e) => {
+                  const maskedValue = applyCurrencyMask(e.target.value);
+                  setFormData({...formData, trade_in_value: maskedValue});
+                }}
+                onBlur={(e) => {
+                  const numericValue = removeCurrencyMask(e.target.value);
+                  setFormData({...formData, trade_in_value: numericValue});
+                }}
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6">
+            <h4 className="text-md font-semibold text-gray-900 mb-4">Alienação</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Input
+                label="Valor da Alienação"
+                type="text"
+                name="lien_amount"
+                value={formData.lien_amount}
+                onChange={(e) => {
+                  const maskedValue = applyCurrencyMask(e.target.value);
+                  setFormData({...formData, lien_amount: maskedValue});
+                }}
+                onBlur={(e) => {
+                  const numericValue = removeCurrencyMask(e.target.value);
+                  setFormData({...formData, lien_amount: numericValue});
+                }}
+                placeholder="0,00"
+              />
+              <Input
+                label="Descrição da Alienação"
+                type="text"
+                name="lien_description"
+                value={formData.lien_description}
+                onChange={(e) => setFormData({...formData, lien_description: e.target.value})}
+                placeholder="Descrição da alienação"
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6">
+            <h4 className="text-md font-semibold text-gray-900 mb-4">Impostos</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Select
+                label="Tipo de Imposto"
+                name="tax_type"
+                value={formData.tax_type}
+                onChange={(e) => setFormData({...formData, tax_type: e.target.value})}
+              >
+                <option value="">Selecione o tipo</option>
+                <option value="icms">ICMS</option>
+                <option value="ipi">IPI</option>
+                <option value="pis">PIS</option>
+                <option value="cofins">COFINS</option>
+                <option value="iss">ISS</option>
+                <option value="outros">Outros</option>
+              </Select>
+              <Input
+                label="Valor do Imposto"
+                type="text"
+                name="tax_amount"
+                value={formData.tax_amount}
+                onChange={(e) => {
+                  const maskedValue = applyCurrencyMask(e.target.value);
+                  setFormData({...formData, tax_amount: maskedValue});
+                }}
+                onBlur={(e) => {
+                  const numericValue = removeCurrencyMask(e.target.value);
+                  setFormData({...formData, tax_amount: numericValue});
+                }}
+                placeholder="0,00"
+              />
+            </div>
           </div>
           
           <div>

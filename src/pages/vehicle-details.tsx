@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../hooks/useAuth";
-import { formatCurrency, applyCurrencyMask, removeCurrencyMask } from "../lib/formatting";
+import { formatCurrency, applyCurrencyMask, removeCurrencyMask, applyCpfMask, removeCpfMask, applyCepMask, removeCepMask, applyPhoneMask, removePhoneMask } from "../lib/formatting";
 import Button from "../components/Button";
 import Input from "../components/Input";
 import Select from "../components/Select";
@@ -17,10 +17,28 @@ interface VehicleDetails {
   color: string;
   plate: string;
   chassis: string;
+  renavam: string;
   mileage: number;
   price: number;
   status: string;
   description: string;
+  customer_name?: string;
+  customer_cpf?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  customer_birth_date?: string;
+  customer_zip_code?: string;
+  customer_address?: string;
+  customer_city?: string;
+  customer_state?: string;
+  legal_customer_name?: string;
+  legal_customer_cnpj?: string;
+  legal_customer_email?: string;
+  legal_customer_phone?: string;
+  legal_customer_zip_code?: string;
+  legal_customer_address?: string;
+  legal_customer_city?: string;
+  legal_customer_state?: string;
   created_at: string;
   updated_at: string;
 }
@@ -41,10 +59,28 @@ export default function VehicleDetails() {
     color: "",
     plate: "",
     chassis: "",
+    renavam: "",
     mileage: "",
     price: "",
     status: "",
-    description: ""
+    description: "",
+    customer_name: "",
+    customer_cpf: "",
+    customer_email: "",
+    customer_phone: "",
+    customer_birth_date: "",
+    customer_zip_code: "",
+    customer_address: "",
+    customer_city: "",
+    customer_state: "",
+    legal_customer_name: "",
+    legal_customer_cnpj: "",
+    legal_customer_email: "",
+    legal_customer_phone: "",
+    legal_customer_zip_code: "",
+    legal_customer_address: "",
+    legal_customer_city: "",
+    legal_customer_state: ""
   });
 
   // Função para buscar detalhes do veículo
@@ -97,10 +133,28 @@ export default function VehicleDetails() {
         color: vehicleDetails.color,
         plate: vehicleDetails.plate,
         chassis: vehicleDetails.chassis,
+        renavam: vehicleDetails.renavam || "",
         mileage: vehicleDetails.mileage.toString(),
         price: applyCurrencyMask(vehicleDetails.price.toString()),
         status: vehicleDetails.status,
-        description: vehicleDetails.description
+        description: vehicleDetails.description,
+        customer_name: vehicleDetails.customer_name || "",
+        customer_cpf: vehicleDetails.customer_cpf ? applyCpfMask(vehicleDetails.customer_cpf) : "",
+        customer_email: vehicleDetails.customer_email || "",
+        customer_phone: vehicleDetails.customer_phone ? applyPhoneMask(vehicleDetails.customer_phone) : "",
+        customer_birth_date: vehicleDetails.customer_birth_date || "",
+        customer_zip_code: vehicleDetails.customer_zip_code ? applyCepMask(vehicleDetails.customer_zip_code) : "",
+        customer_address: vehicleDetails.customer_address || "",
+        customer_city: vehicleDetails.customer_city || "",
+        customer_state: vehicleDetails.customer_state || "",
+        legal_customer_name: vehicleDetails.legal_customer_name || "",
+        legal_customer_cnpj: vehicleDetails.legal_customer_cnpj || "",
+        legal_customer_email: vehicleDetails.legal_customer_email || "",
+        legal_customer_phone: vehicleDetails.legal_customer_phone ? applyPhoneMask(vehicleDetails.legal_customer_phone) : "",
+        legal_customer_zip_code: vehicleDetails.legal_customer_zip_code ? applyCepMask(vehicleDetails.legal_customer_zip_code) : "",
+        legal_customer_address: vehicleDetails.legal_customer_address || "",
+        legal_customer_city: vehicleDetails.legal_customer_city || "",
+        legal_customer_state: vehicleDetails.legal_customer_state || ""
       });
     }
     setIsEditing(true);
@@ -181,6 +235,9 @@ export default function VehicleDetails() {
                 <span class="label">Chassi:</span> <span class="value">${vehicleDetails.chassis || 'N/A'}</span>
               </div>
               <div class="info-item">
+                <span class="label">Renavam:</span> <span class="value">${vehicleDetails.renavam || 'N/A'}</span>
+              </div>
+              <div class="info-item">
                 <span class="label">Status:</span> 
                 <span class="status status-${vehicleDetails.status}">${getStatusLabel(vehicleDetails.status)}</span>
               </div>
@@ -242,10 +299,28 @@ export default function VehicleDetails() {
         color: editForm.color,
         plate: editForm.plate,
         chassis: editForm.chassis,
+        renavam: editForm.renavam,
         mileage: parseInt(editForm.mileage) || 0,
         price: parseFloat(removeCurrencyMask(editForm.price)) || 0,
         status: editForm.status,
-        description: editForm.description
+        description: editForm.description,
+        customer_name: editForm.customer_name || null,
+        customer_cpf: editForm.customer_cpf ? removeCpfMask(editForm.customer_cpf) : null,
+        customer_email: editForm.customer_email || null,
+        customer_phone: editForm.customer_phone ? removePhoneMask(editForm.customer_phone) : null,
+        customer_birth_date: editForm.customer_birth_date || null,
+        customer_zip_code: editForm.customer_zip_code ? removeCepMask(editForm.customer_zip_code) : null,
+        customer_address: editForm.customer_address || null,
+        customer_city: editForm.customer_city || null,
+        customer_state: editForm.customer_state || null,
+        legal_customer_name: editForm.legal_customer_name || null,
+        legal_customer_cnpj: editForm.legal_customer_cnpj || null,
+        legal_customer_email: editForm.legal_customer_email || null,
+        legal_customer_phone: editForm.legal_customer_phone ? removePhoneMask(editForm.legal_customer_phone) : null,
+        legal_customer_zip_code: editForm.legal_customer_zip_code ? removeCepMask(editForm.legal_customer_zip_code) : null,
+        legal_customer_address: editForm.legal_customer_address || null,
+        legal_customer_city: editForm.legal_customer_city || null,
+        legal_customer_state: editForm.legal_customer_state || null
       };
       
       const response = await authenticatedFetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/vehicles?id=eq.${vehicleDetails.id}`, {
@@ -277,11 +352,29 @@ export default function VehicleDetails() {
         ...prev,
         [name]: maskedValue
       }));
+    } else if (name === 'customer_cpf') {
+      const maskedValue = applyCpfMask(value);
+      setEditForm(prev => ({
+        ...prev,
+        [name]: maskedValue
+      }));
+    } else if (name === 'customer_phone' || name === 'legal_customer_phone') {
+      const maskedValue = applyPhoneMask(value);
+      setEditForm(prev => ({
+        ...prev,
+        [name]: maskedValue
+      }));
+    } else if (name === 'customer_zip_code' || name === 'legal_customer_zip_code') {
+      const maskedValue = applyCepMask(value);
+      setEditForm(prev => ({
+        ...prev,
+        [name]: maskedValue
+      }));
     } else {
-    setEditForm(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    }));
+      setEditForm(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      }));
     }
   };
 
@@ -526,6 +619,18 @@ export default function VehicleDetails() {
                       onChange={handleInputChange}
                     />
                   </div>
+                  <Input
+                    label="Chassi"
+                    name="chassis"
+                    value={editForm.chassis}
+                    onChange={handleInputChange}
+                  />
+                  <Input
+                    label="Renavam"
+                    name="renavam"
+                    value={editForm.renavam}
+                    onChange={handleInputChange}
+                  />
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -533,6 +638,8 @@ export default function VehicleDetails() {
                   <p><span className="font-medium text-gray-900">Marca/Modelo:</span> <span className="text-gray-900">{vehicleDetails.brand} {vehicleDetails.model}</span></p>
                   <p><span className="font-medium text-gray-900">Ano:</span> <span className="text-gray-900">{vehicleDetails.year}</span></p>
                   <p><span className="font-medium text-gray-900">Cor:</span> <span className="text-gray-900">{vehicleDetails.color}</span></p>
+                  <p><span className="font-medium text-gray-900">Chassi:</span> <span className="text-gray-900">{vehicleDetails.chassis || 'N/A'}</span></p>
+                  <p><span className="font-medium text-gray-900">Renavam:</span> <span className="text-gray-900">{vehicleDetails.renavam || 'N/A'}</span></p>
                 </div>
               )}
             </div>
@@ -555,12 +662,6 @@ export default function VehicleDetails() {
                     value={editForm.mileage}
                     onChange={handleInputChange}
                   />
-                  <Input
-                    label="Chassi"
-                    name="chassis"
-                    value={editForm.chassis}
-                    onChange={handleInputChange}
-                  />
                   <Select
                     label="Status"
                     name="status"
@@ -579,7 +680,6 @@ export default function VehicleDetails() {
                 <div className="space-y-2">
                   <p><span className="font-medium text-gray-900">Preço:</span> <span className="text-gray-900">{formatCurrency(vehicleDetails.price)}</span></p>
                   <p><span className="font-medium text-gray-900">Quilometragem:</span> <span className="text-gray-900">{vehicleDetails.mileage.toLocaleString('pt-BR')} km</span></p>
-                  <p><span className="font-medium text-gray-900">Chassi:</span> <span className="text-gray-900">{vehicleDetails.chassis}</span></p>
                   <p><span className="font-medium text-gray-900">Status:</span> 
                     <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(vehicleDetails.status)}`}>
                       {getStatusLabel(vehicleDetails.status)}
@@ -619,6 +719,193 @@ export default function VehicleDetails() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados de Cliente</h3>
+            {isEditing ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Nome"
+                    name="customer_name"
+                    value={editForm.customer_name}
+                    onChange={handleInputChange}
+                  />
+                  <Input
+                    label="CPF"
+                    name="customer_cpf"
+                    value={editForm.customer_cpf}
+                    onChange={(e) => {
+                      const maskedValue = applyCpfMask(e.target.value);
+                      setEditForm(prev => ({...prev, customer_cpf: maskedValue}));
+                    }}
+                    placeholder="000.000.000-00"
+                  />
+                  <Input
+                    label="E-mail"
+                    name="customer_email"
+                    type="email"
+                    value={editForm.customer_email}
+                    onChange={handleInputChange}
+                  />
+                  <Input
+                    label="Telefone"
+                    name="customer_phone"
+                    value={editForm.customer_phone}
+                    onChange={(e) => {
+                      const maskedValue = applyPhoneMask(e.target.value);
+                      setEditForm(prev => ({...prev, customer_phone: maskedValue}));
+                    }}
+                    onBlur={(e) => {
+                      const numericValue = removePhoneMask(e.target.value);
+                      setEditForm(prev => ({...prev, customer_phone: numericValue}));
+                    }}
+                    placeholder="(00) 00000-0000"
+                  />
+                  <Input
+                    label="Data de Nascimento"
+                    name="customer_birth_date"
+                    type="date"
+                    value={editForm.customer_birth_date}
+                    onChange={handleInputChange}
+                  />
+                  <Input
+                    label="CEP"
+                    name="customer_zip_code"
+                    value={editForm.customer_zip_code}
+                    onChange={(e) => {
+                      const maskedValue = applyCepMask(e.target.value);
+                      setEditForm(prev => ({...prev, customer_zip_code: maskedValue}));
+                    }}
+                    onBlur={(e) => {
+                      const numericValue = removeCepMask(e.target.value);
+                      setEditForm(prev => ({...prev, customer_zip_code: numericValue}));
+                    }}
+                    placeholder="00000-000"
+                  />
+                  <Input
+                    label="Endereço"
+                    name="customer_address"
+                    value={editForm.customer_address}
+                    onChange={handleInputChange}
+                  />
+                  <Input
+                    label="Cidade"
+                    name="customer_city"
+                    value={editForm.customer_city}
+                    onChange={handleInputChange}
+                  />
+                  <Input
+                    label="Estado"
+                    name="customer_state"
+                    value={editForm.customer_state}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p><span className="font-medium text-gray-900">Nome:</span> <span className="text-gray-900">{vehicleDetails.customer_name || 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">CPF:</span> <span className="text-gray-900">{vehicleDetails.customer_cpf ? applyCpfMask(vehicleDetails.customer_cpf) : 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">E-mail:</span> <span className="text-gray-900">{vehicleDetails.customer_email || 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">Telefone:</span> <span className="text-gray-900">{vehicleDetails.customer_phone ? applyPhoneMask(vehicleDetails.customer_phone) : 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">Data de Nascimento:</span> <span className="text-gray-900">{vehicleDetails.customer_birth_date ? new Date(vehicleDetails.customer_birth_date).toLocaleDateString('pt-BR') : 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">CEP:</span> <span className="text-gray-900">{vehicleDetails.customer_zip_code ? applyCepMask(vehicleDetails.customer_zip_code) : 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">Endereço:</span> <span className="text-gray-900">{vehicleDetails.customer_address || 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">Cidade:</span> <span className="text-gray-900">{vehicleDetails.customer_city || 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">Estado:</span> <span className="text-gray-900">{vehicleDetails.customer_state || 'N/A'}</span></p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 pt-6 border-t">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados do Cliente Legal</h3>
+            {isEditing ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Razão Social"
+                    name="legal_customer_name"
+                    value={editForm.legal_customer_name}
+                    onChange={handleInputChange}
+                  />
+                  <Input
+                    label="CNPJ"
+                    name="legal_customer_cnpj"
+                    value={editForm.legal_customer_cnpj}
+                    onChange={handleInputChange}
+                    placeholder="00.000.000/0000-00"
+                  />
+                  <Input
+                    label="E-mail"
+                    name="legal_customer_email"
+                    type="email"
+                    value={editForm.legal_customer_email}
+                    onChange={handleInputChange}
+                  />
+                  <Input
+                    label="Telefone"
+                    name="legal_customer_phone"
+                    value={editForm.legal_customer_phone}
+                    onChange={(e) => {
+                      const maskedValue = applyPhoneMask(e.target.value);
+                      setEditForm(prev => ({...prev, legal_customer_phone: maskedValue}));
+                    }}
+                    onBlur={(e) => {
+                      const numericValue = removePhoneMask(e.target.value);
+                      setEditForm(prev => ({...prev, legal_customer_phone: numericValue}));
+                    }}
+                    placeholder="(00) 00000-0000"
+                  />
+                  <Input
+                    label="CEP"
+                    name="legal_customer_zip_code"
+                    value={editForm.legal_customer_zip_code}
+                    onChange={(e) => {
+                      const maskedValue = applyCepMask(e.target.value);
+                      setEditForm(prev => ({...prev, legal_customer_zip_code: maskedValue}));
+                    }}
+                    onBlur={(e) => {
+                      const numericValue = removeCepMask(e.target.value);
+                      setEditForm(prev => ({...prev, legal_customer_zip_code: numericValue}));
+                    }}
+                    placeholder="00000-000"
+                  />
+                  <Input
+                    label="Endereço"
+                    name="legal_customer_address"
+                    value={editForm.legal_customer_address}
+                    onChange={handleInputChange}
+                  />
+                  <Input
+                    label="Cidade"
+                    name="legal_customer_city"
+                    value={editForm.legal_customer_city}
+                    onChange={handleInputChange}
+                  />
+                  <Input
+                    label="Estado"
+                    name="legal_customer_state"
+                    value={editForm.legal_customer_state}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p><span className="font-medium text-gray-900">Razão Social:</span> <span className="text-gray-900">{vehicleDetails.legal_customer_name || 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">CNPJ:</span> <span className="text-gray-900">{vehicleDetails.legal_customer_cnpj || 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">E-mail:</span> <span className="text-gray-900">{vehicleDetails.legal_customer_email || 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">Telefone:</span> <span className="text-gray-900">{vehicleDetails.legal_customer_phone ? applyPhoneMask(vehicleDetails.legal_customer_phone) : 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">CEP:</span> <span className="text-gray-900">{vehicleDetails.legal_customer_zip_code ? applyCepMask(vehicleDetails.legal_customer_zip_code) : 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">Endereço:</span> <span className="text-gray-900">{vehicleDetails.legal_customer_address || 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">Cidade:</span> <span className="text-gray-900">{vehicleDetails.legal_customer_city || 'N/A'}</span></p>
+                <p><span className="font-medium text-gray-900">Estado:</span> <span className="text-gray-900">{vehicleDetails.legal_customer_state || 'N/A'}</span></p>
+              </div>
+            )}
           </div>
         </div>
 

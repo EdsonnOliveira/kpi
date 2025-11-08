@@ -56,12 +56,19 @@ interface DashboardData {
   };
 }
 
+interface SalesBySeller {
+  sellerName: string;
+  count: number;
+  percentage: number;
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [selectedPeriod, setSelectedPeriod] = useState("hoje");
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [salesBySeller, setSalesBySeller] = useState<SalesBySeller[]>([]);
 
   // Configurações do Supabase
   const SUPABASE_URL = 'https://cvfacwfkbcgmnfuqorky.supabase.co';
@@ -87,8 +94,8 @@ export default function Dashboard() {
         return;
       }
 
-      // Buscar dados de vendas
-      const salesResponse = await fetch(`${SUPABASE_URL}/rest/v1/sales?company_id=eq.${user.company_id}`, {
+      // Buscar dados de vendas com join em users
+      const salesResponse = await fetch(`${SUPABASE_URL}/rest/v1/sales?company_id=eq.${user.company_id}&select=*,users(name)`, {
         method: 'GET',
         headers: {
           'apikey': SUPABASE_ANON_KEY,
@@ -200,6 +207,25 @@ export default function Dashboard() {
         const totalPartsValue = parts.reduce((sum: number, part: any) => sum + ((part.sale_price || 0) * (part.stock_quantity || 0)), 0);
         const lowStockParts = parts.filter((part: any) => (part.stock_quantity || 0) <= (part.minimum_stock || 0) && (part.stock_quantity || 0) > 0).length;
         const outOfStockParts = parts.filter((part: any) => (part.stock_quantity || 0) === 0).length;
+
+        // Calcular vendas por vendedor
+        const salesBySellerMap = new Map<string, number>();
+        sales.forEach((sale: any) => {
+          const sellerName = sale.users?.name || 'Sem vendedor';
+          const currentCount = salesBySellerMap.get(sellerName) || 0;
+          salesBySellerMap.set(sellerName, currentCount + 1);
+        });
+
+        const totalSales = sales.length;
+        const salesBySellerData: SalesBySeller[] = Array.from(salesBySellerMap.entries())
+          .map(([sellerName, count]) => ({
+            sellerName,
+            count,
+            percentage: totalSales > 0 ? Math.round((count / totalSales) * 100) : 0
+          }))
+          .sort((a, b) => b.count - a.count);
+
+        setSalesBySeller(salesBySellerData);
 
         const data: DashboardData = {
           sales: {
@@ -549,51 +575,35 @@ export default function Dashboard() {
 
           {/* Gráficos e Seções Detalhadas */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
-            {/* Gráfico de Vendas por Categoria */}
+            {/* Gráfico de Vendas por Vendedor */}
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Vendas por Categoria</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Vendas por Vendedor</h3>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 bg-blue-500 rounded mr-3"></div>
-                    <span className="text-sm text-gray-600">Novos</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-medium">18</span>
-                    <span className="text-xs text-gray-600 ml-1">(38%)</span>
-                  </div>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-blue-500 h-2 rounded-full" style={{ width: "38%" }}></div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 bg-green-500 rounded mr-3"></div>
-                    <span className="text-sm text-gray-600">Usados</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-medium">22</span>
-                    <span className="text-xs text-gray-600 ml-1">(47%)</span>
-                  </div>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-green-500 h-2 rounded-full" style={{ width: "47%" }}></div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 bg-yellow-500 rounded mr-3"></div>
-                    <span className="text-sm text-gray-600">Seminovos</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-medium">7</span>
-                    <span className="text-xs text-gray-600 ml-1">(15%)</span>
-                  </div>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-yellow-500 h-2 rounded-full" style={{ width: "15%" }}></div>
-                </div>
+                {salesBySeller.length > 0 ? (
+                  salesBySeller.map((seller, index) => {
+                    const colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500'];
+                    const color = colors[index % colors.length];
+                    return (
+                      <div key={seller.sellerName}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className={`w-4 h-4 ${color} rounded mr-3`}></div>
+                            <span className="text-sm text-gray-600">{seller.sellerName}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-medium">{seller.count}</span>
+                            <span className="text-xs text-gray-600 ml-1">({seller.percentage}%)</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className={`${color} h-2 rounded-full`} style={{ width: `${seller.percentage}%` }}></div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-sm text-gray-500 text-center py-4">Nenhuma venda encontrada</div>
+                )}
               </div>
             </div>
 

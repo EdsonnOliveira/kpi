@@ -4,6 +4,7 @@ import Input from "../components/Input";
 import Select from "../components/Select";
 import Button from "../components/Button";
 import Switch from "../components/Switch";
+import { applyPhoneMask, removePhoneMask } from "../lib/formatting";
 
 interface Integration {
   id: string;
@@ -22,11 +23,14 @@ interface Integration {
 
 interface User {
   id: string;
-  nome: string;
+  name: string;
   email: string;
-  perfil: string;
-  status: string;
-  ultimoAcesso: string;
+  phone: string;
+  position: string;
+  department: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface CompanyData {
@@ -52,10 +56,14 @@ export default function Settings() {
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
   const [isEditingIntegration, setIsEditingIntegration] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [settingsData, setSettingsData] = useState<SettingsData>({});
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [copySuccess, setCopySuccess] = useState("");
   const [primaryColorChanged, setPrimaryColorChanged] = useState(false);
   const [secondaryColorChanged, setSecondaryColorChanged] = useState(false);
@@ -259,7 +267,16 @@ export default function Settings() {
   // Carregar dados quando o componente montar
   useEffect(() => {
     fetchCompanyData();
+    if (activeTab === "users") {
+      fetchUsers();
+    }
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "users") {
+      fetchUsers();
+    }
+  }, [activeTab]);
 
   // Atualizar variáveis CSS quando os dados da empresa forem carregados
   useEffect(() => {
@@ -282,10 +299,12 @@ export default function Settings() {
     syncInterval: ""
   });
   const [userForm, setUserForm] = useState({
-    nome: "",
+    name: "",
     email: "",
-    perfil: "",
-    senha: ""
+    phone: "",
+    position: "",
+    department: "",
+    password: ""
   });
 
   // Mock data para integrações
@@ -348,41 +367,44 @@ export default function Settings() {
     }
   ];
 
-  // Mock data para usuários
-  const usersData: User[] = [
-    {
-      id: "1",
-      nome: "Administrador",
-      email: "admin@novokpi.com",
-      perfil: "Administrador",
-      status: "Ativo",
-      ultimoAcesso: "25/09/2025 16:30"
-    },
-    {
-      id: "2",
-      nome: "Maria Santos",
-      email: "maria@novokpi.com",
-      perfil: "Vendedor",
-      status: "Ativo",
-      ultimoAcesso: "25/09/2025 15:45"
-    },
-    {
-      id: "3",
-      nome: "Pedro Oliveira",
-      email: "pedro@novokpi.com",
-      perfil: "Mecânico",
-      status: "Ativo",
-      ultimoAcesso: "25/09/2025 14:20"
-    },
-    {
-      id: "4",
-      nome: "Ana Costa",
-      email: "ana@novokpi.com",
-      perfil: "Financeiro",
-      status: "Inativo",
-      ultimoAcesso: "20/09/2025 10:15"
+  const fetchUsers = async () => {
+    try {
+      setIsLoadingUsers(true);
+      setError("");
+
+      const userData = localStorage.getItem('user_data');
+      const accessToken = localStorage.getItem('supabase_access_token');
+
+      if (!userData || !accessToken) {
+        router.push('/');
+        return;
+      }
+
+      const user = JSON.parse(userData);
+
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/users?company_id=eq.${user.company_id}&order=created_at.desc`, {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data);
+      } else {
+        setError('Erro ao carregar usuários');
+      }
+
+    } catch (error) {
+      console.error('Erro ao buscar usuários:', error);
+      setError('Erro de conexão. Tente novamente.');
+    } finally {
+      setIsLoadingUsers(false);
     }
-  ];
+  };
 
   const handleIntegrationClick = (integrationId: string) => {
     setSelectedIntegration(selectedIntegration === integrationId ? null : integrationId);
@@ -407,27 +429,274 @@ export default function Settings() {
     setIsEditingIntegration(false);
   };
 
-  const handleUserSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Dados do usuário:", userForm);
-    setIsCreatingUser(false);
+  const handleEditUser = (user: User) => {
     setUserForm({
-      nome: "",
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone ? applyPhoneMask(user.phone) : "",
+      position: user.position || "",
+      department: user.department || "",
+      password: ""
+    });
+    setEditingUserId(user.id);
+    setIsCreatingUser(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsCreatingUser(false);
+    setEditingUserId(null);
+    setUserForm({
+      name: "",
       email: "",
-      perfil: "",
-      senha: ""
+      phone: "",
+      position: "",
+      department: "",
+      password: ""
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Ativo":
-        return "bg-green-100 text-green-800";
-      case "Inativo":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+  const handleDeleteUser = async () => {
+    if (!editingUserId) return;
+
+    if (!confirm('Tem certeza que deseja excluir este usuário?')) {
+      return;
     }
+
+    try {
+      setError("");
+      setSuccessMessage("");
+
+      const accessToken = localStorage.getItem('supabase_access_token');
+
+      if (!accessToken) {
+        router.push('/');
+        return;
+      }
+
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${editingUserId}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const deleteError = await response.json();
+        throw new Error(deleteError.message || 'Erro ao excluir usuário');
+      }
+
+      setSuccessMessage('Usuário excluído com sucesso!');
+      setIsCreatingUser(false);
+      setEditingUserId(null);
+      setUserForm({
+        name: "",
+        email: "",
+        phone: "",
+        position: "",
+        department: "",
+        password: ""
+      });
+      fetchUsers();
+
+      setTimeout(() => {
+        setSuccessMessage("");
+        setError("");
+      }, 5000);
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao excluir usuário');
+    }
+  };
+
+  const handleUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setError("");
+      setSuccessMessage("");
+
+      if (!editingUserId && (!userForm.password || userForm.password.length < 6)) {
+        setError('A senha deve ter pelo menos 6 caracteres');
+        return;
+      }
+
+      const userData = localStorage.getItem('user_data');
+      const accessToken = localStorage.getItem('supabase_access_token');
+
+      if (!userData || !accessToken) {
+        router.push('/');
+        return;
+      }
+
+      const user = JSON.parse(userData);
+
+      if (editingUserId) {
+        const updateResponse = await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${editingUserId}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
+            name: userForm.name,
+            email: userForm.email,
+            phone: removePhoneMask(userForm.phone) || null,
+            position: userForm.position || null,
+            department: userForm.department || null
+          })
+        });
+
+        if (!updateResponse.ok) {
+          const updateError = await updateResponse.json();
+          throw new Error(updateError.message || 'Erro ao atualizar usuário');
+        }
+
+        setSuccessMessage('Usuário atualizado com sucesso!');
+        setIsCreatingUser(false);
+        setEditingUserId(null);
+        setUserForm({
+          name: "",
+          email: "",
+          phone: "",
+          position: "",
+          department: "",
+          password: ""
+        });
+        fetchUsers();
+
+        setTimeout(() => {
+          setSuccessMessage("");
+          setError("");
+        }, 5000);
+
+        return;
+      }
+
+      let authUserId: string | null = null;
+      let authCreated = false;
+      let signupData: any = null;
+
+      try {
+        const signupResponse = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            email: userForm.email,
+            password: userForm.password,
+            data: {
+              name: userForm.name
+            }
+          })
+        });
+
+        signupData = await signupResponse.json();
+
+        if (signupResponse.ok) {
+          authUserId = signupData.user?.id || 
+                      signupData.id || 
+                      signupData.user_id || 
+                      signupData.session?.user?.id ||
+                      null;
+          
+          if (!authUserId && signupData.user) {
+            authUserId = signupData.user.id || 
+                        signupData.user.user_id || 
+                        signupData.user.uid ||
+                        null;
+          }
+          
+          if (authUserId) {
+            authCreated = true;
+          } else {
+            console.warn('Resposta do signup não contém ID do usuário:', signupData);
+            throw new Error('Resposta do autenticador não contém ID do usuário. Verifique se a confirmação de email está desabilitada.');
+          }
+        } else {
+          if (signupResponse.status === 429) {
+            throw new Error('Limite de requisições excedido. Aguarde alguns instantes e tente novamente.');
+          } else if (signupResponse.status === 400 || signupResponse.status === 422) {
+            const errorMsg = signupData.msg || signupData.message || signupData.error_description || 'Erro ao criar usuário';
+            if (errorMsg.toLowerCase().includes('already registered') || 
+                errorMsg.toLowerCase().includes('already exists') ||
+                errorMsg.toLowerCase().includes('user already registered')) {
+              throw new Error('Este e-mail já está cadastrado');
+            }
+            throw new Error(`Erro ao criar usuário: ${errorMsg}`);
+          } else {
+            const errorMsg = signupData.msg || signupData.message || signupData.error_description || 'Erro ao criar usuário no autenticador';
+            throw new Error(errorMsg);
+          }
+        }
+      } catch (authErr) {
+        if (authErr instanceof Error) {
+          throw authErr;
+        }
+        throw new Error('Erro ao criar usuário no autenticador. Tente novamente.');
+      }
+
+      if (!authUserId) {
+        console.error('Resposta completa do signup:', JSON.stringify(signupData, null, 2));
+        throw new Error('Erro ao obter ID do usuário criado no autenticador. Verifique o console para mais detalhes.');
+      }
+
+      const dbResponse = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          id: authUserId,
+          email: userForm.email,
+          password: '$2a$10$placeholder.auth.managed',
+          name: userForm.name,
+          phone: removePhoneMask(userForm.phone) || null,
+          position: userForm.position || null,
+          department: userForm.department || null,
+          company_id: user.company_id,
+          active: true
+        })
+      });
+
+      if (!dbResponse.ok) {
+        const dbError = await dbResponse.json();
+        throw new Error(dbError.message || 'Erro ao criar usuário no banco de dados');
+      }
+
+      setSuccessMessage('Usuário criado com sucesso no autenticador e no banco de dados!');
+
+      setIsCreatingUser(false);
+      setUserForm({
+        name: "",
+        email: "",
+        phone: "",
+        position: "",
+        department: "",
+        password: ""
+      });
+      fetchUsers();
+
+      setTimeout(() => {
+        setSuccessMessage("");
+        setError("");
+      }, 5000);
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar usuário');
+    }
+  };
+
+  const getStatusColor = (active: boolean) => {
+    return active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800";
   };
 
   const updateCSSVariables = (primaryColor: string, secondaryColor: string) => {
@@ -529,7 +798,7 @@ export default function Settings() {
                   {integration.tipo}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(integration.status)}`}>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(integration.status === 'Ativo')}`}>
                     {integration.status}
                   </span>
                 </td>
@@ -556,6 +825,15 @@ export default function Settings() {
   };
 
   const renderUsersTable = () => {
+    if (isLoadingUsers) {
+      return (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-2 text-gray-600">Carregando usuários...</span>
+        </div>
+      );
+    }
+
     return (
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -568,38 +846,63 @@ export default function Settings() {
                 E-mail
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Perfil
+                Cargo
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Departamento
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Último Acesso
+                Data de Criação
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Ações
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {usersData.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {user.nome}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {user.email}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {user.perfil}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.status)}`}>
-                    {user.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {user.ultimoAcesso}
+            {users.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                  Nenhum usuário encontrado
                 </td>
               </tr>
-            ))}
+            ) : (
+              users.map((user) => (
+                <tr key={user.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {user.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {user.email}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {user.position || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {user.department || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.active)}`}>
+                      {user.active ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <button
+                      onClick={() => handleEditUser(user)}
+                      className="text-primary hover:text-primary-dark font-medium"
+                    >
+                      Editar
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -742,18 +1045,40 @@ export default function Settings() {
     return (
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-6">
-          Novo Usuário
+          {editingUserId ? 'Editar Usuário' : 'Novo Usuário'}
         </h3>
         
         <form onSubmit={handleUserSubmit} className="space-y-6">
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-red-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <span className="text-red-800 text-sm">{error}</span>
+              </div>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-green-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-green-800 text-sm">{successMessage}</span>
+              </div>
+            </div>
+          )}
+
           {/* Dados do Usuário */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
               label="Nome Completo"
               type="text"
-              name="nome"
-              value={userForm.nome}
-              onChange={(e) => setUserForm({...userForm, nome: e.target.value})}
+              name="name"
+              value={userForm.name}
+              onChange={(e) => setUserForm({...userForm, name: e.target.value})}
               placeholder="Nome do usuário"
               required
             />
@@ -766,47 +1091,77 @@ export default function Settings() {
               placeholder="email@exemplo.com"
               required
             />
-            <Select
-              label="Perfil"
-              name="perfil"
-              value={userForm.perfil}
-              onChange={(e) => setUserForm({...userForm, perfil: e.target.value})}
-              required
-            >
-              <option value="">Selecione o perfil</option>
-              <option value="administrador">Administrador</option>
-              <option value="vendedor">Vendedor</option>
-              <option value="mecanico">Mecânico</option>
-              <option value="financeiro">Financeiro</option>
-              <option value="estoque">Estoque</option>
-            </Select>
             <Input
-              label="Senha"
-              type="password"
-              name="senha"
-              value={userForm.senha}
-              onChange={(e) => setUserForm({...userForm, senha: e.target.value})}
-              placeholder="Senha do usuário"
-              required
-              showPassword={true}
+              label="Telefone"
+              type="tel"
+              name="phone"
+              value={userForm.phone}
+              onChange={(e) => {
+                const maskedValue = applyPhoneMask(e.target.value);
+                setUserForm({...userForm, phone: maskedValue});
+              }}
+              onBlur={(e) => {
+                const numericValue = removePhoneMask(e.target.value);
+                setUserForm({...userForm, phone: numericValue});
+              }}
+              placeholder="(00) 00000-0000"
             />
+            <Input
+              label="Cargo"
+              type="text"
+              name="position"
+              value={userForm.position}
+              onChange={(e) => setUserForm({...userForm, position: e.target.value})}
+              placeholder="Cargo/Função"
+            />
+            <Input
+              label="Departamento"
+              type="text"
+              name="department"
+              value={userForm.department}
+              onChange={(e) => setUserForm({...userForm, department: e.target.value})}
+              placeholder="Departamento"
+            />
+            {!editingUserId && (
+              <Input
+                label="Senha"
+                type="password"
+                name="password"
+                value={userForm.password}
+                onChange={(e) => setUserForm({...userForm, password: e.target.value})}
+                placeholder="Senha do usuário (mínimo 6 caracteres)"
+                required
+                showPassword={true}
+              />
+            )}
           </div>
 
           {/* Botões de Ação */}
-          <div className="flex justify-end space-x-4">
-            <button
-              type="button"
-              onClick={() => setIsCreatingUser(false)}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors"
-            >
-              Criar Usuário
-            </button>
+          <div className="flex justify-between items-center">
+            {editingUserId && (
+              <button
+                type="button"
+                onClick={handleDeleteUser}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Excluir Usuário
+              </button>
+            )}
+            <div className="flex justify-end space-x-4 ml-auto">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors"
+              >
+                {editingUserId ? 'Salvar Alterações' : 'Criar Usuário'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

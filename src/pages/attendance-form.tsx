@@ -9,6 +9,7 @@ import Radio from "../components/Radio";
 import Button from "../components/Button";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabase";
+import { applyPhoneMask, removePhoneMask } from "../lib/formatting";
 
 interface AttendanceFormData {
   id?: string;
@@ -337,7 +338,11 @@ export default function AttendanceForm() {
       }
       
       const data = await response.json();
-      setAttendanceForms(data);
+      const formattedData = data.map((item: AttendanceFormData) => ({
+        ...item,
+        phone: item.phone ? applyPhoneMask(item.phone) : ""
+      }));
+      setAttendanceForms(formattedData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar dados');
     } finally {
@@ -355,6 +360,11 @@ export default function AttendanceForm() {
         return;
       }
 
+      if (!formData.customer_name || formData.customer_name.trim() === '') {
+        setError('O nome do cliente é obrigatório');
+        return;
+      }
+
       const finalFormData = { ...formData };
 
       if (isQueueEnabled) {
@@ -367,41 +377,90 @@ export default function AttendanceForm() {
         return;
       }
       
-      const dataToSave = {
-        ...finalFormData,
+      const cleanValue = (value: any) => {
+        if (value === null || value === undefined || value === '') return null;
+        return value;
+      };
+
+      const dataToSave: any = {
         company_id: user.company_id,
-        year: finalFormData.year ? parseInt(finalFormData.year.toString()) : null
+        customer_name: finalFormData.customer_name.trim(),
+        email: cleanValue(finalFormData.email),
+        phone: finalFormData.phone ? cleanValue(removePhoneMask(finalFormData.phone)) : null,
+        contact_method: cleanValue(finalFormData.contact_method),
+        attraction_media: cleanValue(finalFormData.attraction_media),
+        seller: cleanValue(finalFormData.seller),
+        type: cleanValue(finalFormData.type),
+        brand: cleanValue(finalFormData.brand),
+        model: cleanValue(finalFormData.model),
+        year: finalFormData.year && finalFormData.year.toString().trim() ? parseInt(finalFormData.year.toString()) : null,
+        vehicle_type: cleanValue(finalFormData.vehicle_type),
+        price_range: cleanValue(finalFormData.price_range),
+        queue_brand: cleanValue(finalFormData.queue_brand),
+        queue_model: cleanValue(finalFormData.queue_model),
+        queue_version: cleanValue(finalFormData.queue_version),
+        queue_color: cleanValue(finalFormData.queue_color),
+        queue_price_from: cleanValue(finalFormData.queue_price_from),
+        queue_price_to: cleanValue(finalFormData.queue_price_to),
+        appointment_date: cleanValue(finalFormData.appointment_date),
+        status: finalFormData.status || 'pending',
+        notes: cleanValue(finalFormData.notes)
       };
       
       let response;
       
       if (isEditing && selectedRecord) {
-        // Editar registro existente
         response = await authenticatedFetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/attendance_forms?id=eq.${selectedRecord}`, {
           method: 'PATCH',
           body: JSON.stringify(dataToSave)
         });
       } else {
-        // Inserir novo registro
         response = await authenticatedFetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/attendance_forms`, {
           method: 'POST',
+          headers: {
+            'Prefer': 'return=representation'
+          },
           body: JSON.stringify(dataToSave)
         });
       }
       
       if (!response.ok) {
-        throw new Error('Erro ao salvar ficha de atendimento');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMsg = errorData.message || errorData.msg || errorData.error_description || 'Erro ao salvar ficha de atendimento';
+        throw new Error(`Erro ao salvar: ${errorMsg}`);
+      }
+
+      let savedRecordId: string | null = null;
+
+      if (isEditing && selectedRecord) {
+        savedRecordId = selectedRecord;
+      } else {
+        try {
+          const responseData = await response.json();
+          if (Array.isArray(responseData) && responseData.length > 0) {
+            savedRecordId = responseData[0].id;
+          } else if (responseData && responseData.id) {
+            savedRecordId = responseData.id;
+          }
+        } catch (parseError) {
+          console.error('Erro ao parsear resposta:', parseError);
+        }
       }
       
       setSuccessMessage(isEditing ? 'Ficha atualizada com sucesso!' : 'Ficha criada com sucesso!');
-      setIsCreatingNew(false);
-      setIsEditing(false);
-      setSelectedRecord(null);
-      resetForm();
-      fetchAttendanceForms();
       
-      // Limpar mensagem de sucesso após 3 segundos
-      setTimeout(() => setSuccessMessage(""), 3000);
+      if (savedRecordId) {
+        setTimeout(() => {
+          router.push(`/appointment?id=${savedRecordId}`);
+        }, 500);
+      } else {
+        setIsCreatingNew(false);
+        setIsEditing(false);
+        setSelectedRecord(null);
+        resetForm();
+        fetchAttendanceForms();
+        setTimeout(() => setSuccessMessage(""), 3000);
+      }
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar dados');
@@ -409,7 +468,10 @@ export default function AttendanceForm() {
   };
 
   const editRecord = (record: AttendanceFormData) => {
-    setFormData(record);
+    setFormData({
+      ...record,
+      phone: record.phone ? applyPhoneMask(record.phone) : ""
+    });
     setSelectedRecord(record.id || null);
     setIsEditing(true);
     setIsCreatingNew(true);
@@ -505,6 +567,13 @@ export default function AttendanceForm() {
 
   // Função para filtrar dados por tipo
   const getFilteredData = (type: string) => {
+    if (type === "Agendamento") {
+      return attendanceForms.filter(form => 
+        form.type === "Agendamento" || 
+        !form.type || 
+        (form.type !== "Troca" && form.type !== "Venda Perdida")
+      );
+    }
     return attendanceForms.filter(form => form.type === type);
   };
 
@@ -683,7 +752,7 @@ export default function AttendanceForm() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {getFilteredData("Agendamento").map((item) => (
+                {getFilteredData("Agendamento").map((item, index) => (
                   <tr 
                     key={item.id}
                     onClick={() => handleRecordClick(item.id || '')}
@@ -692,7 +761,7 @@ export default function AttendanceForm() {
                       selectedRecord === item.id ? 'bg-blue-50 border-l-4 border-primary' : ''
                     }`}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.id?.slice(-8)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(item.appointment_date)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.customer_name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.brand} {item.model}</td>
@@ -727,7 +796,7 @@ export default function AttendanceForm() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {attendanceForms.filter(form => form.queue_brand || form.queue_model).map((item) => (
+                {attendanceForms.filter(form => form.queue_brand || form.queue_model).map((item, index) => (
                   <tr 
                     key={item.id}
                     onClick={() => handleRecordClick(item.id || '')}
@@ -736,7 +805,7 @@ export default function AttendanceForm() {
                       selectedRecord === item.id ? 'bg-blue-50 border-l-4 border-primary' : ''
                     }`}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.id?.slice(-8)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.customer_name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.seller}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.brand} {item.model}</td>
@@ -776,7 +845,7 @@ export default function AttendanceForm() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {getFilteredData("Troca").map((item) => (
+                {getFilteredData("Troca").map((item, index) => (
                   <tr 
                     key={item.id}
                     onClick={() => handleRecordClick(item.id || '')}
@@ -785,7 +854,7 @@ export default function AttendanceForm() {
                       selectedRecord === item.id ? 'bg-blue-50 border-l-4 border-primary' : ''
                     }`}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.id?.slice(-8)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.customer_name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.seller}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.brand} {item.model}</td>
@@ -822,7 +891,7 @@ export default function AttendanceForm() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {getFilteredData("Venda Perdida").map((item) => (
+                {getFilteredData("Venda Perdida").map((item, index) => (
                   <tr 
                     key={item.id}
                     onClick={() => handleRecordClick(item.id || '')}
@@ -831,7 +900,7 @@ export default function AttendanceForm() {
                       selectedRecord === item.id ? 'bg-blue-50 border-l-4 border-primary' : ''
                     }`}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.id?.slice(-8)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(item.created_at || '')}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.seller}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.brand} {item.model}</td>
@@ -1007,8 +1076,15 @@ export default function AttendanceForm() {
                     type="tel"
                     name="phone"
                     value={formData.phone}
-                    onChange={handleInputChange}
-                    placeholder="Digite..."
+                    onChange={(e) => {
+                      const maskedValue = applyPhoneMask(e.target.value);
+                      setFormData(prev => ({...prev, phone: maskedValue}));
+                    }}
+                    onBlur={(e) => {
+                      const numericValue = removePhoneMask(e.target.value);
+                      setFormData(prev => ({...prev, phone: numericValue}));
+                    }}
+                    placeholder="(00) 00000-0000"
                     required
                   />
                 </div>
@@ -1042,7 +1118,7 @@ export default function AttendanceForm() {
               {/* Vendas e compras */}
               <div>
                 <h4 className="text-lg font-medium text-gray-900 mb-4">Vendas e Compras</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                   <AutocompleteInput
                     label="Vendedor"
                     type="text"
@@ -1051,15 +1127,6 @@ export default function AttendanceForm() {
                     onChange={handleInputChange}
                     placeholder="Buscar vendedor"
                     options={users.map(user => user.name)}
-                  />
-                  <AutocompleteInput
-                    label="Tipo"
-                    type="text"
-                    name="type"
-                    value={formData.type}
-                    onChange={handleInputChange}
-                    placeholder="Buscar tipo"
-                    options={['Compra', 'Venda', 'Consignação', 'Outras vendas']}
                   />
                 </div>
               </div>

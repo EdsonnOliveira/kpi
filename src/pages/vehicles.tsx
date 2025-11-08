@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { formatCurrency, formatMileage, applyCurrencyMask, removeCurrencyMask } from "../lib/formatting";
+import { formatCurrency, formatMileage, applyCurrencyMask, removeCurrencyMask, applyCpfMask, removeCpfMask, applyCepMask, removeCepMask, applyPhoneMask, removePhoneMask } from "../lib/formatting";
 import { translateStatus, getStatusColor } from "../lib/statusTranslations";
 import Input from "../components/Input";
 import Select from "../components/Select";
@@ -22,10 +22,28 @@ interface Vehicle {
   color: string;
   plate: string;
   chassis: string;
+  renavam: string;
   mileage: number;
   price: number;
   status: string;
   description: string;
+  customer_name?: string;
+  customer_cpf?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  customer_birth_date?: string;
+  customer_zip_code?: string;
+  customer_address?: string;
+  customer_city?: string;
+  customer_state?: string;
+  legal_customer_name?: string;
+  legal_customer_cnpj?: string;
+  legal_customer_email?: string;
+  legal_customer_phone?: string;
+  legal_customer_zip_code?: string;
+  legal_customer_address?: string;
+  legal_customer_city?: string;
+  legal_customer_state?: string;
   created_at: string;
   updated_at: string;
 }
@@ -51,10 +69,28 @@ export default function Vehicles() {
     color: "",
     plate: "",
     chassis: "",
+    renavam: "",
     mileage: "",
     price: "",
     status: "available",
-    description: ""
+    description: "",
+    customer_name: "",
+    customer_cpf: "",
+    customer_email: "",
+    customer_phone: "",
+    customer_birth_date: "",
+    customer_zip_code: "",
+    customer_address: "",
+    customer_city: "",
+    customer_state: "",
+    legal_customer_name: "",
+    legal_customer_cnpj: "",
+    legal_customer_email: "",
+    legal_customer_phone: "",
+    legal_customer_zip_code: "",
+    legal_customer_address: "",
+    legal_customer_city: "",
+    legal_customer_state: ""
   });
 
   // Configurações do Supabase
@@ -122,7 +158,12 @@ export default function Vehicles() {
         company_id: user.company_id,
         year: formData.year ? parseInt(formData.year.toString()) : null,
         mileage: formData.mileage ? parseInt(formData.mileage.toString()) : null,
-        price: formData.price ? parseFloat(formData.price.toString()) : null
+        price: formData.price ? parseFloat(removeCurrencyMask(formData.price.toString())) : null,
+        customer_cpf: formData.customer_cpf ? removeCpfMask(formData.customer_cpf) : null,
+        customer_phone: formData.customer_phone ? removePhoneMask(formData.customer_phone) : null,
+        customer_zip_code: formData.customer_zip_code ? removeCepMask(formData.customer_zip_code) : null,
+        legal_customer_phone: formData.legal_customer_phone ? removePhoneMask(formData.legal_customer_phone) : null,
+        legal_customer_zip_code: formData.legal_customer_zip_code ? removeCepMask(formData.legal_customer_zip_code) : null
       };
       
       let response;
@@ -179,10 +220,28 @@ export default function Vehicles() {
       color: vehicle.color,
       plate: vehicle.plate,
       chassis: vehicle.chassis,
+      renavam: vehicle.renavam || "",
       mileage: vehicle.mileage.toString(),
       price: vehicle.price.toString(),
       status: vehicle.status,
-      description: vehicle.description
+      description: vehicle.description,
+      customer_name: vehicle.customer_name || "",
+      customer_cpf: vehicle.customer_cpf ? applyCpfMask(vehicle.customer_cpf) : "",
+      customer_email: vehicle.customer_email || "",
+      customer_phone: vehicle.customer_phone ? applyPhoneMask(vehicle.customer_phone) : "",
+      customer_birth_date: vehicle.customer_birth_date || "",
+      customer_zip_code: vehicle.customer_zip_code ? applyCepMask(vehicle.customer_zip_code) : "",
+      customer_address: vehicle.customer_address || "",
+      customer_city: vehicle.customer_city || "",
+      customer_state: vehicle.customer_state || "",
+      legal_customer_name: vehicle.legal_customer_name || "",
+      legal_customer_cnpj: vehicle.legal_customer_cnpj || "",
+      legal_customer_email: vehicle.legal_customer_email || "",
+      legal_customer_phone: vehicle.legal_customer_phone ? applyPhoneMask(vehicle.legal_customer_phone) : "",
+      legal_customer_zip_code: vehicle.legal_customer_zip_code ? applyCepMask(vehicle.legal_customer_zip_code) : "",
+      legal_customer_address: vehicle.legal_customer_address || "",
+      legal_customer_city: vehicle.legal_customer_city || "",
+      legal_customer_state: vehicle.legal_customer_state || ""
     });
     setSelectedVehicle(vehicle.id);
     setIsEditing(true);
@@ -248,10 +307,28 @@ export default function Vehicles() {
       color: "",
       plate: "",
       chassis: "",
+      renavam: "",
       mileage: "",
       price: "",
       status: "available",
-      description: ""
+      description: "",
+      customer_name: "",
+      customer_cpf: "",
+      customer_email: "",
+      customer_phone: "",
+      customer_birth_date: "",
+      customer_zip_code: "",
+      customer_address: "",
+      customer_city: "",
+      customer_state: "",
+      legal_customer_name: "",
+      legal_customer_cnpj: "",
+      legal_customer_email: "",
+      legal_customer_phone: "",
+      legal_customer_zip_code: "",
+      legal_customer_address: "",
+      legal_customer_city: "",
+      legal_customer_state: ""
     });
   };
 
@@ -284,6 +361,7 @@ export default function Vehicles() {
       status: "Disponível",
       description: "Seminovo",
       chassis: "9BWZZZZZZZZ123456",
+      renavam: "",
       created_at: "2025-09-15",
       updated_at: "2025-09-15"
     },
@@ -299,6 +377,7 @@ export default function Vehicles() {
       status: "Vendido",
       description: "Novo",
       chassis: "9BWZZZZZZZZ789012",
+      renavam: "",
       created_at: "2025-09-10",
       updated_at: "2025-09-10"
     },
@@ -314,6 +393,7 @@ export default function Vehicles() {
       status: "Reservado",
       description: "Seminovo",
       chassis: "9BWZZZZZZZZ345678",
+      renavam: "",
       created_at: "2025-09-20",
       updated_at: "2025-09-20"
     },
@@ -328,6 +408,7 @@ export default function Vehicles() {
       price: 75000,
       status: "Manutenção",
       description: "Usado",
+      renavam: "",
       chassis: "9BWZZZZZZZZ901234",
       created_at: "2025-09-25",
       updated_at: "2025-09-25"
@@ -354,10 +435,28 @@ export default function Vehicles() {
       color: "",
       plate: "",
       chassis: "",
+      renavam: "",
       mileage: "",
       price: "",
       status: "available",
-      description: ""
+      description: "",
+      customer_name: "",
+      customer_cpf: "",
+      customer_email: "",
+      customer_phone: "",
+      customer_birth_date: "",
+      customer_zip_code: "",
+      customer_address: "",
+      customer_city: "",
+      customer_state: "",
+      legal_customer_name: "",
+      legal_customer_cnpj: "",
+      legal_customer_email: "",
+      legal_customer_phone: "",
+      legal_customer_zip_code: "",
+      legal_customer_address: "",
+      legal_customer_city: "",
+      legal_customer_state: ""
     });
   };
 
@@ -738,6 +837,13 @@ export default function Vehicles() {
                 placeholder="Número do chassi"
               />
               <Input
+                label="Renavam"
+                name="renavam"
+                value={formData.renavam}
+                onChange={(e) => setFormData({...formData, renavam: e.target.value})}
+                placeholder="Número do Renavam"
+              />
+              <Input
                 label="Quilometragem"
                 name="mileage"
                 type="number"
@@ -788,6 +894,170 @@ export default function Vehicles() {
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+            </div>
+
+            <div className="pt-6 border-t">
+              <h4 className="text-md font-semibold text-gray-900 mb-4">Dados de Cliente</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Input
+                  label="Nome"
+                  name="customer_name"
+                  value={formData.customer_name}
+                  onChange={(e) => setFormData({...formData, customer_name: e.target.value})}
+                  placeholder="Nome do cliente"
+                />
+                <Input
+                  label="CPF"
+                  name="customer_cpf"
+                  value={formData.customer_cpf}
+                  onChange={(e) => {
+                    const maskedValue = applyCpfMask(e.target.value);
+                    setFormData({...formData, customer_cpf: maskedValue});
+                  }}
+                  placeholder="000.000.000-00"
+                />
+                <Input
+                  label="E-mail"
+                  name="customer_email"
+                  type="email"
+                  value={formData.customer_email}
+                  onChange={(e) => setFormData({...formData, customer_email: e.target.value})}
+                  placeholder="email@exemplo.com"
+                />
+                <Input
+                  label="Telefone"
+                  name="customer_phone"
+                  value={formData.customer_phone}
+                  onChange={(e) => {
+                    const maskedValue = applyPhoneMask(e.target.value);
+                    setFormData({...formData, customer_phone: maskedValue});
+                  }}
+                  onBlur={(e) => {
+                    const numericValue = removePhoneMask(e.target.value);
+                    setFormData({...formData, customer_phone: numericValue});
+                  }}
+                  placeholder="(00) 00000-0000"
+                />
+                <Input
+                  label="Data de Nascimento"
+                  name="customer_birth_date"
+                  type="date"
+                  value={formData.customer_birth_date}
+                  onChange={(e) => setFormData({...formData, customer_birth_date: e.target.value})}
+                />
+                <Input
+                  label="CEP"
+                  name="customer_zip_code"
+                  value={formData.customer_zip_code}
+                  onChange={(e) => {
+                    const maskedValue = applyCepMask(e.target.value);
+                    setFormData({...formData, customer_zip_code: maskedValue});
+                  }}
+                  onBlur={(e) => {
+                    const numericValue = removeCepMask(e.target.value);
+                    setFormData({...formData, customer_zip_code: numericValue});
+                  }}
+                  placeholder="00000-000"
+                />
+                <Input
+                  label="Endereço"
+                  name="customer_address"
+                  value={formData.customer_address}
+                  onChange={(e) => setFormData({...formData, customer_address: e.target.value})}
+                  placeholder="Endereço completo"
+                />
+                <Input
+                  label="Cidade"
+                  name="customer_city"
+                  value={formData.customer_city}
+                  onChange={(e) => setFormData({...formData, customer_city: e.target.value})}
+                  placeholder="Cidade"
+                />
+                <Input
+                  label="Estado"
+                  name="customer_state"
+                  value={formData.customer_state}
+                  onChange={(e) => setFormData({...formData, customer_state: e.target.value})}
+                  placeholder="Estado"
+                />
+              </div>
+            </div>
+
+            <div className="pt-6 border-t">
+              <h4 className="text-md font-semibold text-gray-900 mb-4">Dados do Cliente Legal</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Input
+                  label="Razão Social"
+                  name="legal_customer_name"
+                  value={formData.legal_customer_name}
+                  onChange={(e) => setFormData({...formData, legal_customer_name: e.target.value})}
+                  placeholder="Razão social"
+                />
+                <Input
+                  label="CNPJ"
+                  name="legal_customer_cnpj"
+                  value={formData.legal_customer_cnpj}
+                  onChange={(e) => setFormData({...formData, legal_customer_cnpj: e.target.value})}
+                  placeholder="00.000.000/0000-00"
+                />
+                <Input
+                  label="E-mail"
+                  name="legal_customer_email"
+                  type="email"
+                  value={formData.legal_customer_email}
+                  onChange={(e) => setFormData({...formData, legal_customer_email: e.target.value})}
+                  placeholder="email@exemplo.com"
+                />
+                <Input
+                  label="Telefone"
+                  name="legal_customer_phone"
+                  value={formData.legal_customer_phone}
+                  onChange={(e) => {
+                    const maskedValue = applyPhoneMask(e.target.value);
+                    setFormData({...formData, legal_customer_phone: maskedValue});
+                  }}
+                  onBlur={(e) => {
+                    const numericValue = removePhoneMask(e.target.value);
+                    setFormData({...formData, legal_customer_phone: numericValue});
+                  }}
+                  placeholder="(00) 00000-0000"
+                />
+                <Input
+                  label="CEP"
+                  name="legal_customer_zip_code"
+                  value={formData.legal_customer_zip_code}
+                  onChange={(e) => {
+                    const maskedValue = applyCepMask(e.target.value);
+                    setFormData({...formData, legal_customer_zip_code: maskedValue});
+                  }}
+                  onBlur={(e) => {
+                    const numericValue = removeCepMask(e.target.value);
+                    setFormData({...formData, legal_customer_zip_code: numericValue});
+                  }}
+                  placeholder="00000-000"
+                />
+                <Input
+                  label="Endereço"
+                  name="legal_customer_address"
+                  value={formData.legal_customer_address}
+                  onChange={(e) => setFormData({...formData, legal_customer_address: e.target.value})}
+                  placeholder="Endereço completo"
+                />
+                <Input
+                  label="Cidade"
+                  name="legal_customer_city"
+                  value={formData.legal_customer_city}
+                  onChange={(e) => setFormData({...formData, legal_customer_city: e.target.value})}
+                  placeholder="Cidade"
+                />
+                <Input
+                  label="Estado"
+                  name="legal_customer_state"
+                  value={formData.legal_customer_state}
+                  onChange={(e) => setFormData({...formData, legal_customer_state: e.target.value})}
+                  placeholder="Estado"
+                />
+              </div>
             </div>
 
             <div className="flex justify-end space-x-4 pt-4 border-t">
