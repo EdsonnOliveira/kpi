@@ -440,3 +440,54 @@ export function formatDateBR(dateString: string | Date): string {
     return '';
   }
 }
+
+/**
+ * Aplica máscara de CNPJ (XX.XXX.XXX/XXXX-XX)
+ * @param value - Valor digitado pelo usuário
+ * @returns String formatada com máscara de CNPJ
+ */
+export function applyCnpjMask(value: string): string {
+  const numbers = value.replace(/\D/g, '');
+  const limitedNumbers = numbers.slice(0, 14);
+  
+  return limitedNumbers
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/(\d{2})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3/$4')
+    .replace(/(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/, '$1.$2.$3/$4-$5');
+}
+
+/**
+ * Remove máscara de CNPJ e retorna apenas números
+ * @param maskedValue - Valor com máscara (ex: "12.345.678/0001-90")
+ * @returns String apenas com números (ex: "12345678000190")
+ */
+export function removeCnpjMask(maskedValue: string): string {
+  if (!maskedValue) return '';
+  return maskedValue.replace(/\D/g, '');
+}
+
+/**
+ * Detecta se o documento é CPF ou CNPJ baseado no tamanho
+ * @param document - Documento com ou sem máscara
+ * @returns 'CPF' ou 'CNPJ'
+ */
+export function detectDocumentType(document: string): 'CPF' | 'CNPJ' {
+  const cleanDoc = document.replace(/\D/g, '');
+  return cleanDoc.length <= 11 ? 'CPF' : 'CNPJ';
+}
+
+/**
+ * Aplica máscara de CPF ou CNPJ automaticamente
+ * @param value - Valor digitado pelo usuário
+ * @returns String formatada com máscara apropriada
+ */
+export function applyCpfCnpjMask(value: string): string {
+  const cleanValue = value.replace(/\D/g, '');
+  
+  if (cleanValue.length <= 11) {
+    return applyCpfMask(value);
+  } else {
+    return applyCnpjMask(value);
+  }
+}

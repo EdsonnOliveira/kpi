@@ -4,14 +4,18 @@ import Button from "../components/Button";
 import Input from "../components/Input";
 import Select from "../components/Select";
 import Textarea from "../components/Textarea";
+import Switch from "../components/Switch";
 import ResponsivePage from "../components/ResponsivePage";
 import ResponsiveCard from "../components/ResponsiveCard";
+
+interface ChannelStatus {
+  enabled: boolean;
+}
 
 export default function NewAd() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     veiculoId: "",
-    canal: "",
     titulo: "",
     preco: "",
     descricao: "",
@@ -21,6 +25,11 @@ export default function NewAd() {
     telefone: "",
     email: "",
     observacoes: ""
+  });
+  const [channels, setChannels] = useState<Record<string, ChannelStatus>>({
+    OLX: { enabled: false },
+    Webmotors: { enabled: false },
+    "Mercado Livre": { enabled: false }
   });
 
   // Mock de veículos disponíveis para anúncio
@@ -40,7 +49,6 @@ export default function NewAd() {
       [name]: value
     }));
 
-    // Auto-preencher dados quando selecionar um veículo
     if (name === "veiculoId") {
       const veiculoSelecionado = mockVeiculos.find(v => v.id === value);
       if (veiculoSelecionado) {
@@ -54,17 +62,72 @@ export default function NewAd() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleChannelToggle = (channelName: string, enabled: boolean) => {
+    setChannels(prev => ({
+      ...prev,
+      [channelName]: {
+        enabled
+      }
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Aqui seria a lógica para criar o anúncio
-    console.log("Criando novo anúncio:", formData);
+    const enabledChannels = Object.entries(channels).filter(([_, status]) => status.enabled);
     
-    // Simular criação do anúncio
-    alert("Anúncio criado com sucesso!");
+    if (enabledChannels.length === 0) {
+      alert("Selecione pelo menos um canal para publicar o anúncio.");
+      return;
+    }
     
-    // Redirecionar para a página de anúncios
-    router.push("/ads");
+    try {
+      const userData = localStorage.getItem('user_data');
+      const accessToken = localStorage.getItem('supabase_access_token');
+      
+      if (!userData || !accessToken) {
+        router.push('/');
+        return;
+      }
+      
+      const user = JSON.parse(userData);
+      const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
+      const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key';
+      
+      for (const [channelName, channelStatus] of enabledChannels) {
+        const adData = {
+          company_id: user.company_id,
+          vehicle_id: formData.veiculoId,
+          platform: channelName,
+          title: formData.titulo,
+          description: formData.descricao,
+          price: parseFloat(formData.preco.replace(/[^\d,]/g, '').replace(',', '.')) || 0,
+          status: channelStatus.enabled ? 'active' : 'paused',
+          published_at: channelStatus.enabled ? new Date().toISOString() : null
+        };
+        
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/ads`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(adData)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Erro ao criar anúncio no canal ${channelName}`);
+        }
+      }
+      
+      alert("Anúncio criado com sucesso!");
+      router.push("/ads");
+    } catch (error) {
+      console.error('Erro ao criar anúncio:', error);
+      alert("Erro ao criar anúncio. Tente novamente.");
+    }
   };
 
   const handleCancel = () => {
@@ -113,18 +176,30 @@ export default function NewAd() {
                 </option>
               ))}
             </Select>
-            <Select
-              label="Canal de Anúncio"
-              name="canal"
-              value={formData.canal}
-              onChange={handleInputChange}
-              required
-            >
-              <option value="">Selecione o canal</option>
-              <option value="OLX">OLX</option>
-              <option value="Webmotors">Webmotors</option>
-              <option value="Mercado Livre">Mercado Livre</option>
-            </Select>
+          </div>
+        </ResponsiveCard>
+
+        {/* Canais de Publicação */}
+        <ResponsiveCard>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Canais de Publicação</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Selecione os canais onde deseja publicar este anúncio. Você pode habilitar ou desabilitar cada canal a qualquer momento.
+          </p>
+          <div className="space-y-4">
+            {Object.entries(channels).map(([channelName, channelStatus]) => (
+              <div key={channelName} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                <div className="flex-1">
+                  <h4 className="text-base font-medium text-gray-900">{channelName}</h4>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {channelStatus.enabled ? "Publicado" : "Despublicado"}
+                  </p>
+                </div>
+                <Switch
+                  checked={channelStatus.enabled}
+                  onChange={(e) => handleChannelToggle(channelName, e.target.checked)}
+                />
+              </div>
+            ))}
           </div>
         </ResponsiveCard>
 

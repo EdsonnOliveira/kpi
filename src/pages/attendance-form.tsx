@@ -1069,7 +1069,6 @@ export default function AttendanceForm() {
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="Digite..."
-                    required
                   />
                   <Input
                     label="Telefone"

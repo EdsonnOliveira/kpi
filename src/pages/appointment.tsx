@@ -7,15 +7,12 @@ import {
   removeCurrencyMask,
   applyCpfMask,
   removeCpfMask,
+  applyCnpjMask,
+  removeCnpjMask,
   applyPhoneMask,
   removePhoneMask,
   applyCepMask,
-  removeCepMask,
-  applyDateMask,
-  removeDateMask,
-  isValidCpf,
-  isValidPhone,
-  isValidCep
+  removeCepMask
 } from "../lib/formatting";
 import { uploadMultipleFiles, listAppointmentFiles, deleteFile } from "../lib/fileUpload";
 import FileUpload from "../components/FileUpload";
@@ -75,7 +72,8 @@ export default function Appointment() {
     tipoContato: "",
     vendedor: "",
     observacoes: "",
-    proximoContato: ""
+    proximoContato: "",
+    proximoContatoHora: ""
   });
 
   // Estados para opções dinâmicas
@@ -109,27 +107,41 @@ export default function Appointment() {
   });
 
   const [proprietarioLegal, setProprietarioLegal] = useState({
-    nome: "",
+    tipoDocumento: "CPF" as "CPF" | "CNPJ",
     cpf: "",
+    cnpj: "",
+    inscricaoEstadual: "",
+    nome: "",
     email: "",
     celular: "",
     celular2: "",
     dataNascimento: "",
     cep: "",
     endereco: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
+    cidade: "",
     estado: "",
     uf: ""
   });
 
   const [proprietarioPosse, setProprietarioPosse] = useState({
-    nome: "",
+    tipoDocumento: "CPF" as "CPF" | "CNPJ",
     cpf: "",
+    cnpj: "",
+    inscricaoEstadual: "",
+    nome: "",
     email: "",
     celular: "(61) 98195-0302",
     celular2: "",
     dataNascimento: "",
     cep: "",
     endereco: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
+    cidade: "",
     estado: "",
     uf: ""
   });
@@ -140,6 +152,8 @@ export default function Appointment() {
     modelo: "",
     ano: "",
     cor: "",
+    chassi: "",
+    renavam: "",
     maisBarato: "",
     fipe: "",
     maisCaro: "",
@@ -455,15 +469,27 @@ export default function Appointment() {
         if (legalData.length > 0) {
           const legal = legalData[0];
           setExistingLegalOwnerId(legal.id);
+          const tipoDoc = legal.cnpj ? 'CNPJ' : 'CPF';
+          const documento = legal.cnpj 
+            ? applyCnpjMask(legal.cnpj) 
+            : (legal.cpf ? applyCpfMask(legal.cpf) : '');
+          
           setProprietarioLegal({
+            tipoDocumento: tipoDoc,
+            cpf: tipoDoc === 'CPF' ? documento : '',
+            cnpj: tipoDoc === 'CNPJ' ? documento : '',
+            inscricaoEstadual: legal.inscricao_estadual || '',
             nome: legal.name || '',
-            cpf: legal.cpf ? applyCpfMask(legal.cpf) : '',
             email: legal.email || '',
             celular: legal.phone ? applyPhoneMask(legal.phone) : '',
             celular2: legal.phone2 ? applyPhoneMask(legal.phone2) : '',
             dataNascimento: legal.birth_date || '',
             cep: legal.zip_code ? applyCepMask(legal.zip_code) : '',
             endereco: legal.address || '',
+            numero: legal.number || '',
+            complemento: legal.complement || '',
+            bairro: legal.neighborhood || '',
+            cidade: legal.city || '',
             estado: legal.state || '',
             uf: legal.uf || ''
           });
@@ -484,15 +510,27 @@ export default function Appointment() {
         if (posseData.length > 0) {
           const posse = posseData[0];
           setExistingPosseOwnerId(posse.id);
+          const tipoDoc = posse.cnpj ? 'CNPJ' : 'CPF';
+          const documento = posse.cnpj 
+            ? applyCnpjMask(posse.cnpj) 
+            : (posse.cpf ? applyCpfMask(posse.cpf) : '');
+          
           setProprietarioPosse({
+            tipoDocumento: tipoDoc,
+            cpf: tipoDoc === 'CPF' ? documento : '',
+            cnpj: tipoDoc === 'CNPJ' ? documento : '',
+            inscricaoEstadual: posse.inscricao_estadual || '',
             nome: posse.name || '',
-            cpf: posse.cpf ? applyCpfMask(posse.cpf) : '',
             email: posse.email || '',
             celular: posse.phone ? applyPhoneMask(posse.phone) : '(61) 98195-0302',
             celular2: posse.phone2 ? applyPhoneMask(posse.phone2) : '',
             dataNascimento: posse.birth_date || '',
             cep: posse.zip_code ? applyCepMask(posse.zip_code) : '',
             endereco: posse.address || '',
+            numero: posse.number || '',
+            complemento: posse.complement || '',
+            bairro: posse.neighborhood || '',
+            cidade: posse.city || '',
             estado: posse.state || '',
             uf: posse.uf || ''
           });
@@ -519,6 +557,8 @@ export default function Appointment() {
             modelo: vehicle.model || '',
             ano: vehicle.year || '',
             cor: vehicle.color || '',
+            chassi: vehicle.chassis || '',
+            renavam: vehicle.renavam || '',
             maisBarato: vehicle.cheapest_price ? applyCurrencyMask(vehicle.cheapest_price.toString()) : '',
             fipe: vehicle.fipe_price ? applyCurrencyMask(vehicle.fipe_price.toString()) : '',
             maisCaro: vehicle.expensive_price ? applyCurrencyMask(vehicle.expensive_price.toString()) : '',
@@ -1227,6 +1267,12 @@ export default function Appointment() {
       
       const user = JSON.parse(userData);
 
+      const proximoContatoDateTime = contactForm.proximoContato && contactForm.proximoContatoHora
+        ? `${contactForm.proximoContato}T${contactForm.proximoContatoHora}:00`
+        : contactForm.proximoContato
+          ? `${contactForm.proximoContato}T00:00:00`
+          : null;
+
       const dataToSend = {
         appointment_id: id.toString(),
         company_id: user.company_id,
@@ -1235,7 +1281,7 @@ export default function Appointment() {
         tipo_contato: contactForm.tipoContato,
         vendedor: contactForm.vendedor,
         observacoes: contactForm.observacoes,
-        proximo_contato: contactForm.proximoContato || null
+        proximo_contato: proximoContatoDateTime
       };
 
       console.log('Dados sendo enviados:', dataToSend);
@@ -1260,7 +1306,8 @@ export default function Appointment() {
           tipoContato: "",
           vendedor: "",
           observacoes: "",
-          proximoContato: ""
+          proximoContato: "",
+          proximoContatoHora: ""
         });
         setShowContactForm(false);
         
@@ -1284,7 +1331,8 @@ export default function Appointment() {
       tipoContato: "",
       vendedor: "",
       observacoes: "",
-      proximoContato: ""
+      proximoContato: "",
+      proximoContatoHora: ""
     });
     setShowContactForm(false);
   };
@@ -1417,18 +1465,27 @@ export default function Appointment() {
       
       const user = JSON.parse(userData);
 
-      // Preparar dados para envio
+      const documento = proprietarioLegal.tipoDocumento === 'CNPJ' 
+        ? removeCnpjMask(proprietarioLegal.cnpj)
+        : removeCpfMask(proprietarioLegal.cpf);
+
       const dataToSend = {
         appointment_id: id.toString(),
         company_id: user.company_id,
         name: proprietarioLegal.nome,
-        cpf: removeCpfMask(proprietarioLegal.cpf),
+        cpf: proprietarioLegal.tipoDocumento === 'CPF' ? documento : null,
+        cnpj: proprietarioLegal.tipoDocumento === 'CNPJ' ? documento : null,
+        inscricao_estadual: proprietarioLegal.tipoDocumento === 'CNPJ' ? proprietarioLegal.inscricaoEstadual : null,
         email: proprietarioLegal.email,
         phone: removePhoneMask(proprietarioLegal.celular),
         phone2: removePhoneMask(proprietarioLegal.celular2),
         birth_date: proprietarioLegal.dataNascimento || null,
         zip_code: removeCepMask(proprietarioLegal.cep),
         address: proprietarioLegal.endereco,
+        number: proprietarioLegal.numero,
+        complement: proprietarioLegal.complemento,
+        neighborhood: proprietarioLegal.bairro,
+        city: proprietarioLegal.cidade,
         state: proprietarioLegal.estado,
         uf: proprietarioLegal.uf
       };
@@ -1487,18 +1544,27 @@ export default function Appointment() {
       
       const user = JSON.parse(userData);
 
-      // Preparar dados para envio
+      const documento = proprietarioPosse.tipoDocumento === 'CNPJ' 
+        ? removeCnpjMask(proprietarioPosse.cnpj)
+        : removeCpfMask(proprietarioPosse.cpf);
+
       const dataToSend = {
         appointment_id: id.toString(),
         company_id: user.company_id,
         name: proprietarioPosse.nome,
-        cpf: removeCpfMask(proprietarioPosse.cpf),
+        cpf: proprietarioPosse.tipoDocumento === 'CPF' ? documento : null,
+        cnpj: proprietarioPosse.tipoDocumento === 'CNPJ' ? documento : null,
+        inscricao_estadual: proprietarioPosse.tipoDocumento === 'CNPJ' ? proprietarioPosse.inscricaoEstadual : null,
         email: proprietarioPosse.email,
         phone: removePhoneMask(proprietarioPosse.celular),
         phone2: removePhoneMask(proprietarioPosse.celular2),
         birth_date: proprietarioPosse.dataNascimento || null,
         zip_code: removeCepMask(proprietarioPosse.cep),
         address: proprietarioPosse.endereco,
+        number: proprietarioPosse.numero,
+        complement: proprietarioPosse.complemento,
+        neighborhood: proprietarioPosse.bairro,
+        city: proprietarioPosse.cidade,
         state: proprietarioPosse.estado,
         uf: proprietarioPosse.uf
       };
@@ -1557,7 +1623,6 @@ export default function Appointment() {
       
       const user = JSON.parse(userData);
 
-      // Preparar dados para envio
       const dataToSend = {
         appointment_id: id.toString(),
         company_id: user.company_id,
@@ -1566,6 +1631,8 @@ export default function Appointment() {
         model: dadosVeiculo.modelo,
         year: dadosVeiculo.ano,
         color: dadosVeiculo.cor,
+        chassis: dadosVeiculo.chassi || null,
+        renavam: dadosVeiculo.renavam || null,
         cheapest_price: dadosVeiculo.maisBarato ? parseFloat(removeCurrencyMask(dadosVeiculo.maisBarato)) : null,
         fipe_price: dadosVeiculo.fipe ? parseFloat(removeCurrencyMask(dadosVeiculo.fipe)) : null,
         expensive_price: dadosVeiculo.maisCaro ? parseFloat(removeCurrencyMask(dadosVeiculo.maisCaro)) : null,
@@ -1831,13 +1898,22 @@ export default function Appointment() {
                         required
                       />
                       
-                      <Input
-                        label="Próximo Contato (opcional)"
-                        type="date"
-                        name="proximoContato"
-                        value={contactForm.proximoContato}
-                        onChange={handleContactFormChange}
-                      />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          label="Próximo Contato - Data (opcional)"
+                          type="date"
+                          name="proximoContato"
+                          value={contactForm.proximoContato}
+                          onChange={handleContactFormChange}
+                        />
+                        <Input
+                          label="Próximo Contato - Hora (opcional)"
+                          type="time"
+                          name="proximoContatoHora"
+                          value={contactForm.proximoContatoHora}
+                          onChange={handleContactFormChange}
+                        />
+                      </div>
                       
                       <div className="flex justify-end space-x-4">
                         <button
@@ -1900,7 +1976,13 @@ export default function Appointment() {
                           <div className="text-sm text-gray-600">
                             <span className="text-gray-500">Próximo contato: </span>
                             <span className="font-medium text-gray-900">
-                              {new Date(contact.proximoContato).toLocaleDateString('pt-BR')}
+                              {(() => {
+                                const date = new Date(contact.proximoContato);
+                                const dateStr = date.toLocaleDateString('pt-BR');
+                                const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                                const hasTime = timeStr !== '00:00' && date.getHours() !== 0 && date.getMinutes() !== 0;
+                                return hasTime ? `${dateStr} às ${timeStr}` : dateStr;
+                              })()}
                             </span>
                           </div>
                         )}
@@ -1977,6 +2059,21 @@ export default function Appointment() {
                     {isUploading ? 'Enviando...' : 'Adicionar Anexo'}
                   </button>
                 </FileUpload>
+              </div>
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm font-medium text-blue-900 mb-2">
+                  Instruções para fotos da avaliação:
+                </p>
+                <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                  <li>Frente do veículo</li>
+                  <li>Lateral (ambos os lados)</li>
+                  <li>Traseira</li>
+                  <li>Interior (painel, bancos, detalhes)</li>
+                  <li>Detalhes para preparar (danos, arranhões, etc.)</li>
+                </ul>
+                <p className="text-xs text-blue-700 mt-2 italic">
+                  Essas fotos serão utilizadas para a previsão de custo de reparo.
+                </p>
               </div>
               <AttachmentList
                 attachments={avaliacaoAnexos}
@@ -2201,26 +2298,78 @@ export default function Appointment() {
                 {/* Primeira linha */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Input
-                    label="Nome"
+                    label="Nome / Razão Social"
                     type="text"
                     name="nome"
-                    placeholder="Nome"
+                    placeholder="Nome ou Razão Social"
                     value={proprietarioLegal.nome}
                     onChange={(e) => setProprietarioLegal(prev => ({ ...prev, nome: e.target.value }))}
                     required
                   />
-                  <Input
-                    label="CPF"
-                    type="text"
-                    name="cpf"
-                    placeholder="000.000.000-00"
-                    value={proprietarioLegal.cpf}
+                  <Select
+                    label="Tipo de Documento"
+                    name="tipoDocumento"
+                    value={proprietarioLegal.tipoDocumento}
                     onChange={(e) => {
-                      const maskedValue = applyCpfMask(e.target.value);
-                      setProprietarioLegal(prev => ({ ...prev, cpf: maskedValue }));
+                      const tipo = e.target.value as "CPF" | "CNPJ";
+                      setProprietarioLegal(prev => ({ 
+                        ...prev, 
+                        tipoDocumento: tipo,
+                        cpf: tipo === 'CPF' ? prev.cpf : '',
+                        cnpj: tipo === 'CNPJ' ? prev.cnpj : '',
+                        inscricaoEstadual: tipo === 'CPF' ? '' : prev.inscricaoEstadual
+                      }));
                     }}
                     required
-                  />
+                  >
+                    <option value="CPF">CPF</option>
+                    <option value="CNPJ">CNPJ</option>
+                  </Select>
+                  {proprietarioLegal.tipoDocumento === 'CPF' ? (
+                    <Input
+                      label="CPF"
+                      type="text"
+                      name="cpf"
+                      placeholder="000.000.000-00"
+                      value={proprietarioLegal.cpf}
+                      onChange={(e) => {
+                        const maskedValue = applyCpfMask(e.target.value);
+                        setProprietarioLegal(prev => ({ ...prev, cpf: maskedValue }));
+                      }}
+                      required
+                    />
+                  ) : (
+                    <>
+                      <Input
+                        label="CNPJ"
+                        type="text"
+                        name="cnpj"
+                        placeholder="00.000.000/0000-00"
+                        value={proprietarioLegal.cnpj}
+                        onChange={(e) => {
+                          const maskedValue = applyCnpjMask(e.target.value);
+                          setProprietarioLegal(prev => ({ ...prev, cnpj: maskedValue }));
+                        }}
+                        required
+                      />
+                    </>
+                  )}
+                </div>
+                
+                {proprietarioLegal.tipoDocumento === 'CNPJ' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <Input
+                      label="Inscrição Estadual"
+                      type="text"
+                      name="inscricaoEstadual"
+                      placeholder="Inscrição Estadual (opcional)"
+                      value={proprietarioLegal.inscricaoEstadual}
+                      onChange={(e) => setProprietarioLegal(prev => ({ ...prev, inscricaoEstadual: e.target.value }))}
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Input
                     label="E-Mail"
                     type="email"
@@ -2264,11 +2413,11 @@ export default function Appointment() {
                     placeholder="Data de Nascimento"
                     value={proprietarioLegal.dataNascimento}
                     onChange={(e) => setProprietarioLegal(prev => ({ ...prev, dataNascimento: e.target.value }))}
-                    required
+                    required={proprietarioLegal.tipoDocumento === 'CPF'}
                   />
                 </div>
 
-                {/* Terceira linha */}
+                {/* Terceira linha - Endereço completo */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Input
                     label="CEP"
@@ -2286,9 +2435,47 @@ export default function Appointment() {
                     label="Endereço"
                     type="text"
                     name="endereco"
-                    placeholder="Endereço"
+                    placeholder="Rua, Avenida, etc."
                     value={proprietarioLegal.endereco}
                     onChange={(e) => setProprietarioLegal(prev => ({ ...prev, endereco: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Número"
+                    type="text"
+                    name="numero"
+                    placeholder="Número"
+                    value={proprietarioLegal.numero}
+                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, numero: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Complemento"
+                    type="text"
+                    name="complemento"
+                    placeholder="Apto, Bloco, etc. (opcional)"
+                    value={proprietarioLegal.complemento}
+                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, complemento: e.target.value }))}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Input
+                    label="Bairro"
+                    type="text"
+                    name="bairro"
+                    placeholder="Bairro"
+                    value={proprietarioLegal.bairro}
+                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, bairro: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Cidade"
+                    type="text"
+                    name="cidade"
+                    placeholder="Cidade"
+                    value={proprietarioLegal.cidade}
+                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, cidade: e.target.value }))}
                     required
                   />
                   <Input
@@ -2307,6 +2494,7 @@ export default function Appointment() {
                     placeholder="UF"
                     value={proprietarioLegal.uf}
                     onChange={(e) => setProprietarioLegal(prev => ({ ...prev, uf: e.target.value }))}
+                    maxLength={2}
                     required
                   />
                 </div>
@@ -2334,26 +2522,76 @@ export default function Appointment() {
                 {/* Primeira linha */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Input
-                    label="Nome"
+                    label="Nome / Razão Social"
                     type="text"
                     name="nome"
-                    placeholder="Nome do proprietário de posse"
+                    placeholder="Nome ou Razão Social"
                     value={proprietarioPosse.nome}
                     onChange={(e) => setProprietarioPosse(prev => ({ ...prev, nome: e.target.value }))}
                     required
                   />
-                  <Input
-                    label="CPF"
-                    type="text"
-                    name="cpf"
-                    placeholder="000.000.000-00"
-                    value={proprietarioPosse.cpf}
+                  <Select
+                    label="Tipo de Documento"
+                    name="tipoDocumento"
+                    value={proprietarioPosse.tipoDocumento}
                     onChange={(e) => {
-                      const maskedValue = applyCpfMask(e.target.value);
-                      setProprietarioPosse(prev => ({ ...prev, cpf: maskedValue }));
+                      const tipo = e.target.value as "CPF" | "CNPJ";
+                      setProprietarioPosse(prev => ({ 
+                        ...prev, 
+                        tipoDocumento: tipo,
+                        cpf: tipo === 'CPF' ? prev.cpf : '',
+                        cnpj: tipo === 'CNPJ' ? prev.cnpj : '',
+                        inscricaoEstadual: tipo === 'CPF' ? '' : prev.inscricaoEstadual
+                      }));
                     }}
                     required
-                  />
+                  >
+                    <option value="CPF">CPF</option>
+                    <option value="CNPJ">CNPJ</option>
+                  </Select>
+                  {proprietarioPosse.tipoDocumento === 'CPF' ? (
+                    <Input
+                      label="CPF"
+                      type="text"
+                      name="cpf"
+                      placeholder="000.000.000-00"
+                      value={proprietarioPosse.cpf}
+                      onChange={(e) => {
+                        const maskedValue = applyCpfMask(e.target.value);
+                        setProprietarioPosse(prev => ({ ...prev, cpf: maskedValue }));
+                      }}
+                      required
+                    />
+                  ) : (
+                    <Input
+                      label="CNPJ"
+                      type="text"
+                      name="cnpj"
+                      placeholder="00.000.000/0000-00"
+                      value={proprietarioPosse.cnpj}
+                      onChange={(e) => {
+                        const maskedValue = applyCnpjMask(e.target.value);
+                        setProprietarioPosse(prev => ({ ...prev, cnpj: maskedValue }));
+                      }}
+                      required
+                    />
+                  )}
+                </div>
+                
+                {proprietarioPosse.tipoDocumento === 'CNPJ' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <Input
+                      label="Inscrição Estadual"
+                      type="text"
+                      name="inscricaoEstadual"
+                      placeholder="Inscrição Estadual (opcional)"
+                      value={proprietarioPosse.inscricaoEstadual}
+                      onChange={(e) => setProprietarioPosse(prev => ({ ...prev, inscricaoEstadual: e.target.value }))}
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Input
                     label="E-Mail"
                     type="email"
@@ -2393,11 +2631,11 @@ export default function Appointment() {
                     placeholder="Data de Nascimento"
                     value={proprietarioPosse.dataNascimento}
                     onChange={(e) => setProprietarioPosse(prev => ({ ...prev, dataNascimento: e.target.value }))}
-                    required
+                    required={proprietarioPosse.tipoDocumento === 'CPF'}
                   />
                 </div>
 
-                {/* Terceira linha */}
+                {/* Terceira linha - Endereço completo */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Input
                     label="CEP"
@@ -2415,9 +2653,47 @@ export default function Appointment() {
                     label="Endereço"
                     type="text"
                     name="endereco"
-                    placeholder="Endereço"
+                    placeholder="Rua, Avenida, etc."
                     value={proprietarioPosse.endereco}
                     onChange={(e) => setProprietarioPosse(prev => ({ ...prev, endereco: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Número"
+                    type="text"
+                    name="numero"
+                    placeholder="Número"
+                    value={proprietarioPosse.numero}
+                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, numero: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Complemento"
+                    type="text"
+                    name="complemento"
+                    placeholder="Apto, Bloco, etc. (opcional)"
+                    value={proprietarioPosse.complemento}
+                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, complemento: e.target.value }))}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Input
+                    label="Bairro"
+                    type="text"
+                    name="bairro"
+                    placeholder="Bairro"
+                    value={proprietarioPosse.bairro}
+                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, bairro: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Cidade"
+                    type="text"
+                    name="cidade"
+                    placeholder="Cidade"
+                    value={proprietarioPosse.cidade}
+                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, cidade: e.target.value }))}
                     required
                   />
                   <Input
@@ -2436,6 +2712,7 @@ export default function Appointment() {
                     placeholder="UF"
                     value={proprietarioPosse.uf}
                     onChange={(e) => setProprietarioPosse(prev => ({ ...prev, uf: e.target.value }))}
+                    maxLength={2}
                     required
                   />
                 </div>
@@ -2509,6 +2786,30 @@ export default function Appointment() {
                       <option key={color} value={color}>{color}</option>
                     ))}
                   </Select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                  <Input
+                    label="Chassi"
+                    type="text"
+                    name="chassi"
+                    placeholder="Digite o chassi"
+                    value={dadosVeiculo.chassi}
+                    onChange={(e) => setDadosVeiculo(prev => ({ ...prev, chassi: e.target.value.toUpperCase() }))}
+                    required
+                  />
+                  <Input
+                    label="RENAVAM"
+                    type="text"
+                    name="renavam"
+                    placeholder="Digite o RENAVAM"
+                    value={dadosVeiculo.renavam}
+                    onChange={(e) => setDadosVeiculo(prev => ({ ...prev, renavam: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Input
                     label="Mais barato"
                     type="text"
