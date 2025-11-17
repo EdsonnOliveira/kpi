@@ -1194,7 +1194,7 @@ export default function AttendanceForm() {
               {/* Data de agendamento e status */}
               <div>
                 <h4 className="text-lg font-medium text-gray-900 mb-4">Agendamento e Status</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Input
                     label="Data do Agendamento"
                     type="date"
@@ -1202,19 +1202,6 @@ export default function AttendanceForm() {
                     value={formData.appointment_date}
                     onChange={handleInputChange}
                   />
-                  <Select
-                    label="Status"
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    required
-                  >
-                    <option value="">Selecione um status</option>
-                    <option value="pending">Pendente</option>
-                    <option value="in_progress">Em Andamento</option>
-                    <option value="completed">Concluído</option>
-                    <option value="cancelled">Cancelado</option>
-                  </Select>
                   <AutocompleteInput
                     label="Tipo"
                     type="text"

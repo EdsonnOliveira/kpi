@@ -4,7 +4,7 @@ import Input from "../components/Input";
 import Select from "../components/Select";
 import Button from "../components/Button";
 import Switch from "../components/Switch";
-import { applyPhoneMask, removePhoneMask } from "../lib/formatting";
+import { applyPhoneMask, removePhoneMask, applyCepMask, removeCepMask } from "../lib/formatting";
 
 interface Integration {
   id: string;
@@ -28,6 +28,10 @@ interface User {
   phone: string;
   position: string;
   department: string;
+  address: string;
+  city: string;
+  state: string;
+  zip_code: string;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -304,6 +308,10 @@ export default function Settings() {
     phone: "",
     position: "",
     department: "",
+    address: "",
+    city: "",
+    state: "",
+    zip_code: "",
     password: ""
   });
 
@@ -436,6 +444,10 @@ export default function Settings() {
       phone: user.phone ? applyPhoneMask(user.phone) : "",
       position: user.position || "",
       department: user.department || "",
+      address: user.address || "",
+      city: user.city || "",
+      state: user.state || "",
+      zip_code: user.zip_code ? applyCepMask(user.zip_code) : "",
       password: ""
     });
     setEditingUserId(user.id);
@@ -451,6 +463,10 @@ export default function Settings() {
       phone: "",
       position: "",
       department: "",
+      address: "",
+      city: "",
+      state: "",
+      zip_code: "",
       password: ""
     });
   };
@@ -496,6 +512,10 @@ export default function Settings() {
         phone: "",
         position: "",
         department: "",
+        address: "",
+        city: "",
+        state: "",
+        zip_code: "",
         password: ""
       });
       fetchUsers();
@@ -545,7 +565,11 @@ export default function Settings() {
             email: userForm.email,
             phone: removePhoneMask(userForm.phone) || null,
             position: userForm.position || null,
-            department: userForm.department || null
+            department: userForm.department || null,
+            address: userForm.address || null,
+            city: userForm.city || null,
+            state: userForm.state || null,
+            zip_code: removeCepMask(userForm.zip_code) || null
           })
         });
 
@@ -563,6 +587,10 @@ export default function Settings() {
           phone: "",
           position: "",
           department: "",
+          address: "",
+          city: "",
+          state: "",
+          zip_code: "",
           password: ""
         });
         fetchUsers();
@@ -662,6 +690,10 @@ export default function Settings() {
           phone: removePhoneMask(userForm.phone) || null,
           position: userForm.position || null,
           department: userForm.department || null,
+          address: userForm.address || null,
+          city: userForm.city || null,
+          state: userForm.state || null,
+          zip_code: removeCepMask(userForm.zip_code) || null,
           company_id: user.company_id,
           active: true
         })
@@ -681,6 +713,10 @@ export default function Settings() {
         phone: "",
         position: "",
         department: "",
+        address: "",
+        city: "",
+        state: "",
+        zip_code: "",
         password: ""
       });
       fetchUsers();
@@ -1134,6 +1170,47 @@ export default function Settings() {
                 showPassword={true}
               />
             )}
+          </div>
+
+          <div>
+            <h4 className="text-lg font-medium text-gray-900 mb-4">Endereço</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Input
+                label="CEP"
+                type="text"
+                name="zip_code"
+                value={userForm.zip_code}
+                onChange={(e) => {
+                  const maskedValue = applyCepMask(e.target.value);
+                  setUserForm({...userForm, zip_code: maskedValue});
+                }}
+                placeholder="00000-000"
+              />
+              <Input
+                label="Cidade"
+                type="text"
+                name="city"
+                value={userForm.city}
+                onChange={(e) => setUserForm({...userForm, city: e.target.value})}
+                placeholder="Cidade"
+              />
+              <Input
+                label="Estado"
+                type="text"
+                name="state"
+                value={userForm.state}
+                onChange={(e) => setUserForm({...userForm, state: e.target.value})}
+                placeholder="Estado"
+              />
+            </div>
+            <Input
+              label="Endereço Completo"
+              type="text"
+              name="address"
+              value={userForm.address}
+              onChange={(e) => setUserForm({...userForm, address: e.target.value})}
+              placeholder="Rua, número, bairro"
+            />
           </div>
 
           {/* Botões de Ação */}

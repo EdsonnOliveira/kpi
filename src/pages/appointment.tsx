@@ -12,13 +12,16 @@ import {
   applyPhoneMask,
   removePhoneMask,
   applyCepMask,
-  removeCepMask
+  removeCepMask,
+  formatDateBR,
+  formatCurrency
 } from "../lib/formatting";
 import { uploadMultipleFiles, listAppointmentFiles, deleteFile } from "../lib/fileUpload";
 import FileUpload from "../components/FileUpload";
 import Input from "../components/Input";
 import Select from "../components/Select";
 import Textarea from "../components/Textarea";
+import jsPDF from "jspdf";
 
 interface ClientData {
   // Informações do cliente
@@ -1679,6 +1682,784 @@ export default function Appointment() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const gerarPDFContrato = async () => {
+    const userData = localStorage.getItem('user_data');
+    const accessToken = localStorage.getItem('supabase_access_token');
+    
+    if (!userData || !accessToken) {
+      alert('Erro ao gerar PDF: dados do usuário não encontrados');
+      return;
+    }
+
+    const user = JSON.parse(userData);
+    let companyData = null;
+
+    try {
+      const companyResponse = await fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/companies?id=eq.${user.company_id}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (companyResponse.ok) {
+        const data = await companyResponse.json();
+        if (data.length > 0) {
+          companyData = data[0];
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados da empresa:', error);
+    }
+
+    const doc = new jsPDF();
+    let yPos = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - (margin * 2);
+
+    const numeroContrato = id || 'N/A';
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`CONTRATO DE VENDA Nº ${numeroContrato}`, pageWidth - margin, yPos, { align: 'right' });
+    yPos += 10;
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONTRATO DE COMPRA E VENDA DE VEÍCULO USADO', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const textoRegulamentacao = 'Regulado pelo Código Civil Brasileiro (Lei nº 10.406/2002)';
+    doc.text(textoRegulamentacao, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 15;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('VENDEDORA', margin, yPos);
+    yPos += 7;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const vendedoraNome = companyData?.name || 'Não informado';
+    const vendedoraCnpj = companyData?.document || companyData?.cnpj || 'Não informado';
+    const vendedoraEndereco = companyData?.address || 'Não informado';
+    const vendedoraNumero = '';
+    const vendedoraBairro = '';
+    const vendedoraCidade = companyData?.city || 'Não informado';
+    const vendedoraEstado = companyData?.state || 'Não informado';
+    const vendedoraCep = companyData?.zip_code || 'Não informado';
+
+    doc.text(`Identifica-se ${vendedoraNome}, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº ${vendedoraCnpj},`, margin, yPos);
+    yPos += 6;
+    const enderecoVendedora = `${vendedoraEndereco}${vendedoraNumero ? ', Nº ' + vendedoraNumero : ''}${vendedoraBairro ? ', bairro ' + vendedoraBairro : ''}, ${vendedoraCidade}/${vendedoraEstado}${vendedoraCep ? ', CEP: ' + vendedoraCep : ''}.`;
+    const enderecoLines = doc.splitTextToSize(enderecoVendedora, maxWidth);
+    doc.text(enderecoLines, margin, yPos);
+    yPos += enderecoLines.length * 6 + 8;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('COMPRADOR(A)', margin, yPos);
+    yPos += 7;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const compradorNome = formalizationClient.nome || clientData?.nomeCliente || 'Não informado';
+    const compradorCpfCnpj = formalizationClient.cpfCnpj || 'Não informado';
+    const compradorRg = formalizationClient.rgIe || 'Não informado';
+    const compradorCep = formalizationClient.cep || 'Não informado';
+    const compradorEndereco = formalizationClient.endereco || 'Não informado';
+    const compradorCidade = formalizationClient.cidade || 'Não informado';
+    const compradorEstado = formalizationClient.estado || 'Não informado';
+
+    const compradorTexto = `Identifica-se ${compradorNome}, portador(a) do CPF/CNPJ nº ${compradorCpfCnpj}, RG nº ${compradorRg},`;
+    const compradorTextoLines = doc.splitTextToSize(compradorTexto, maxWidth);
+    doc.text(compradorTextoLines, margin, yPos);
+    yPos += compradorTextoLines.length * 6;
+    
+    const compradorEnderecoTexto = `residente e domiciliado(a) em ${compradorEndereco}${compradorCep ? ', CEP: ' + compradorCep : ''}, ${compradorCidade}/${compradorEstado}.`;
+    const compradorEnderecoLines = doc.splitTextToSize(compradorEnderecoTexto, maxWidth);
+    doc.text(compradorEnderecoLines, margin, yPos);
+    yPos += compradorEnderecoLines.length * 6 + 8;
+
+    const textoPartes = 'As partes acima identificadas têm entre si justo e contratado o presente CONTRATO DE COMPRA E VENDA DE VEÍCULO USADO, que se regerá pelas cláusulas e condições seguintes:';
+    const textoPartesLines = doc.splitTextToSize(textoPartes, maxWidth);
+    doc.text(textoPartesLines, margin, yPos);
+    yPos += textoPartesLines.length * 6 + 10;
+
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('DO OBJETO DO CONTRATO', margin, yPos);
+    yPos += 8;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Cláusula Primeira', margin, yPos);
+    yPos += 6;
+    doc.setFont('helvetica', 'normal');
+    const clausula1 = `O presente contrato tem por objeto o veículo usado de propriedade da VENDEDORA, livre e desembaraçado de qualquer ônus ou gravame.`;
+    const clausula1Lines = doc.splitTextToSize(clausula1, maxWidth);
+    doc.text(clausula1Lines, margin, yPos);
+    yPos += clausula1Lines.length * 6 + 6;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Cláusula Segunda', margin, yPos);
+    yPos += 6;
+    doc.setFont('helvetica', 'normal');
+    const clausula2 = `O veículo é USADO, apresentando desgaste natural pelo tempo, já visto e vistoriado pelo COMPRADOR, que está ciente de suas condições e estado de conservação.`;
+    const clausula2Lines = doc.splitTextToSize(clausula2, maxWidth);
+    doc.text(clausula2Lines, margin, yPos);
+    yPos += clausula2Lines.length * 6 + 10;
+
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('DADOS DO VEÍCULO', margin, yPos);
+    yPos += 8;
+
+    const veiculoMarca = dadosVeiculo.marca || clientData?.marca || 'Não informado';
+    const veiculoModelo = dadosVeiculo.modelo || clientData?.modelo || 'Não informado';
+    const veiculoAno = dadosVeiculo.ano || clientData?.ano || 'Não informado';
+    const veiculoCor = dadosVeiculo.cor || 'Não informado';
+    const veiculoPlaca = dadosVeiculo.placa || 'Não informado';
+    const veiculoChassi = dadosVeiculo.chassi || '';
+    const veiculoRenavam = dadosVeiculo.renavam || 'Não informado';
+    const veiculoKm = '';
+
+    const veiculoCompleto = `${veiculoMarca.toUpperCase()} ${veiculoModelo.toUpperCase()}`;
+    
+    const tableStartY = yPos;
+    const col1X = margin;
+    const col2X = margin + 100;
+    const lineHeight = 7;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Veículo:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoCompleto, col2X, yPos);
+    yPos += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Renavam:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoRenavam, col2X, yPos);
+    yPos += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Placa:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoPlaca, col2X, yPos);
+    yPos += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('KM:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoKm || 'Não informado', col2X, yPos);
+    yPos += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Chassi:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoChassi || '', col2X, yPos);
+    yPos += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Ano:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoAno, col2X, yPos);
+    yPos += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Cor:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoCor, col2X, yPos);
+    yPos += 12;
+
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('DO PREÇO E FORMA DE PAGAMENTO', margin, yPos);
+    yPos += 8;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Cláusula Terceira', margin, yPos);
+    yPos += 6;
+    doc.setFont('helvetica', 'normal');
+    const clausula3 = `O COMPRADOR declara ter examinado o veículo, recebendo-o em perfeitas condições de uso e conservação, sendo o negócio realizado nesta data pelo valor de:`;
+    const clausula3Lines = doc.splitTextToSize(clausula3, maxWidth);
+    doc.text(clausula3Lines, margin, yPos);
+    yPos += clausula3Lines.length * 6 + 6;
+
+    let valorTotal = 0;
+    if (formalizationPayments && formalizationPayments.length > 0) {
+      formalizationPayments.forEach((pagamento) => {
+        const valorPag = pagamento.valorPagamento || '0,00';
+        const valorNum = parseFloat(removeCurrencyMask(valorPag)) || 0;
+        valorTotal += valorNum;
+      });
+    } else {
+      const veiculoValor = dadosVeiculo.valor || '0,00';
+      valorTotal = parseFloat(removeCurrencyMask(veiculoValor)) || 0;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Valor da Venda: ${formatCurrency(valorTotal, { showSymbol: true })}`, margin, yPos);
+    yPos += 10;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('CONDIÇÕES DE PAGAMENTO', margin, yPos);
+    yPos += 6;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('O pagamento se dará da seguinte forma:', margin, yPos);
+    yPos += 8;
+
+    const tableY = yPos;
+    const tableCol1X = margin;
+    const tableCol2X = margin + 50;
+    const tableCol3X = margin + 100;
+    const tableCol4X = margin + 150;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('FORMA PAGAMENTO', tableCol1X, yPos);
+    doc.text('DESCRIÇÃO', tableCol2X, yPos);
+    doc.text('DATA', tableCol3X, yPos);
+    doc.text('VALOR', tableCol4X, yPos);
+    yPos += 6;
+
+    doc.setLineWidth(0.1);
+    doc.line(tableCol1X, yPos - 2, pageWidth - margin, yPos - 2);
+    yPos += 3;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    
+    if (formalizationPayments && formalizationPayments.length > 0) {
+      formalizationPayments.forEach((pagamento) => {
+        const formaPag = pagamento.formaPagamento || 'Não informado';
+        const formaPagFormatada = formaPag === 'deposito' ? 'Depósito' :
+                                  formaPag === 'dinheiro' ? 'Dinheiro' :
+                                  formaPag === 'cartao' ? 'Cartão' :
+                                  formaPag === 'pix' ? 'PIX' :
+                                  formaPag === 'transferencia' ? 'Transferência' : formaPag;
+        const dataPag = pagamento.dataPagamento ? formatDateBR(pagamento.dataPagamento) : 'Não informado';
+        const valorPag = pagamento.valorPagamento || '0,00';
+
+        doc.text(formaPagFormatada, tableCol1X, yPos);
+        doc.text('-', tableCol2X, yPos);
+        doc.text(dataPag, tableCol3X, yPos);
+        doc.text(valorPag, tableCol4X, yPos);
+        yPos += 6;
+
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+      });
+    } else {
+      doc.text('Não informado', tableCol1X, yPos);
+      doc.text('-', tableCol2X, yPos);
+      doc.text('Não informado', tableCol3X, yPos);
+      doc.text('Não informado', tableCol4X, yPos);
+      yPos += 6;
+    }
+
+    yPos += 10;
+
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const textoCondicoes = [
+      '- O valor de venda do veículo, crédito e condições de pagamento estão sujeitos a aprovação do agente financeiro e da diretoria da empresa.',
+      '',
+      '- O veículo somente será entregue ao cliente após recebimento e compensação integral do pagamento.',
+      '',
+      '- Alterado as condições de pagamento será alterado também o preço de veículo bem como possíveis cortesias.',
+      '',
+      '- Caso ocorra financiamento do bem ofertado como troca, o COMPRADOR(A), autoriza de imediato o pagamento do contrato de financiamento com a instituição financeira no ato da assinatura do contrato, para posterior apuração de haveres.',
+      '',
+      'O veículo adquirido que for pago por meio da apresentação de carta de crédito (consórcio) CONTEMPLADA seguirá as seguintes regras:',
+      '',
+      'a) - É de responsabilidade do cliente consorciado o valor informado da carta de credito e o mesmo assume qualquer alteração neste valor. Ao assinar este contrato o mesmo assume que já foi contemplado e possui a carta de credito; Para efeito de reserva e faturamento, deverá ser apresentada a autorização de faturamento comprovando o valor total da carta e o parte a vista deverá ser paga de imediato, desta maneira ficará pendente apenas a parte de responsabilidade do consórcio.',
+      '',
+      'b) - O COMPRADOR (A) tem o prazo de até 07 (SETE) dias após assinatura do contrato para entregar toda a documentação necessária (kit) para a liberação do pagamento da carta contemplada;',
+      '',
+      'c) – Caso o valor atribuído na carta de crédito, não venha ser liberado dentro do prazo estipulado, considerar-se-á cancelado o contrato de compra e venda de veículo usado, que utilizou o valor da carta de crédito como parcela de pagamento, sendo considerado pelas partes que após este período automaticamente o veículo retornará para a lista de veículos em estoque, cabendo a perda do sinal de negócio pelo COMPRADOR (A);',
+      '',
+      'd)- Caso haja algum atraso no prazo de pagamento do consórcio por responsabilidade do cliente tais como: não aprovação do credito do cliente, atraso no pagamento da parcela do consorcio, falta de documentação entre outros a – VENDEDORA poderá reincidir o contrato, perdendo o cliente o sinal de negócio, além da obrigatoriedade do pagamento da multa conforme cláusulas de contrato.',
+      '',
+      'Cláusula Quarta: Caso ocorra arrependimento do negócio por qualquer uma das partes, as arras ou sinal terão função unicamente indenizatória. Neste caso, quem as deu perdê-las-á em benefício da outra parte, e quem as recebeu devolvê-las-á, mais o equivalente. (art. 420 do Código Civil). O arrependimento da compra não se aplica em vendas realizadas dentro do estabelecimento comercial da VENDEDORA, após a devida inspeção do veículo pelo COMPRADOR (A).',
+      '',
+      'O veículo usado, recebido em troca, como sinal de negócio, deverá ser entregue imediatamente a concretização do negócio, mas caso seja alterada a data de entrega, por convenção das partes, passará por nova avaliação e conferência de seu estado de uso e conservação, na data, e, devendo estar livre de multas, autuações, efeitos suspensivos, perda total, impedimentos e remarcação de chassi.',
+      '',
+      'Caso esteja em trâmite ações no âmbito da justiça municipal, estadual, federal e trabalhista, em nome do proprietário do veículo objeto da troca, que possam ocasionar futuro impedimento judicial, será motivo de recusa no recebimento do mesmo.',
+      '',
+      'O COMPRADOR (A) declara estar ciente que o direito de arrependimento de 07 (sete) dias previsto no Código de Defesa do Consumidor não se aplica em compra e venda presencial de veículos, tendo valor apenas para compras via internet.',
+      '',
+      'DA VISTORIA E AVALIAÇÃO DO VEÍCULO',
+      '',
+      'Cláusula Quinta: O COMPRADOR (A) declara para todos os fins de direito, ter vistoriado e avaliado o estado em que se encontra o veículo usado ora negociado, estando o mesmo em perfeitas condições de uso/funcionamento e estado de conservação, com todos os seus componentes de série, conforme checklist apresentado, declarando, também ter ciência do desgaste natural dos seus componentes, devido ao uso por tratar-se de veículo usado.',
+      '',
+      'Parágrafo Primeiro:',
+      '',
+      'É facultado a(o) COMPRADOR (A) a realização de vistoria por profissional técnico de sua confiança e responsabilidade no ato da compra do veículo usado, inclusive com teste drive acompanhado de funcionário da empresa VENDEDORA, para avaliação técnica do veículo. A não realização por interesse do COMPRADOR (A) isenta de imediato as responsabilidades técnicas e condições de uso do veículo quanto à empresa VENDEDORA, respeitando somente as garantias expressas e constantes em Cláusula Sétima e suas cominações legais.',
+      '',
+      'DA RESPONSABILIDADE CIVIL E CRIMINAL',
+      '',
+      'Cláusula Sexta: A partir da entrega do veículo, conforme check list de saída, o COMPRADOR (A) se responsabiliza por quaisquer danos, seja no âmbito civil ou penal, decorrente da utilização do veículo ora adquirido, inclusive multas e pontuações na CNH decorrentes de tais infrações, sejam elas de âmbito Municipal, Estadual e ou Federal, bem como, fica responsável também, nos mesmos termos acima, até a presente data e hora, por eventual veículo dado na compra do objeto do presente, respondendo ainda o comprador, pela evicção e eventuais vícios redibitórios do mesmo.',
+      '',
+      'A VENDEDORA, acaso tenha recebido algum veículo do COMPRADOR (A), como forma de pagamento do bem objeto do presente, fica responsável, por quaisquer danos, seja no âmbito civil ou penal, decorrente da utilização do veículo ora recebido, inclusive multas e pontuações na CNH decorrentes de tais infrações, sejam elas de âmbito Municipal, Estadual e ou Federal;',
+      '',
+      'Deste modo, o presente instrumento é firmado nos termos do artigo 784 - Inciso III do Novo Código de Processo Civil, razão pela qual é um título executivo extrajudicial, mesmo porque, o "quantum debeatur" depende de simples cálculo aritmético, à partir de dados consignados em documentos comprobatórios do débito (multas de trânsito, IPVA, licenciamento e outros).',
+      '',
+      'Nesta seara, a VENDEDORA poderá executar o presente para cobrança de eventuais valores encontrados e de responsabilidade do COMPRADOR (A).',
+      '',
+      'DA GARANTIA',
+      '',
+      'Cláusula Sétima: Para os veículos usados e identificados, a VENDEDORA concede uma cobertura de garantia pelo período de 90 (noventa) dias (art. 26 do CDC) ou 3.000 km rodados, para os conjuntos de motor e câmbio, a partir da data de entrega e quilometragem especificada, prevalecendo à condição que primeiro ocorrer, restringindo a mão de obra e reposição de peças lubrificadas, dos conjuntos de motor e câmbio, quando os referidos componentes apresentarem algum defeito.',
+      '',
+      'A mesma estará automaticamente cancelada, no ato da constatação de mau uso do veículo em questão; em caso deste último ter suas características originais (especificadas pelo fabricante no manual do veículo) alteradas, bem como, quando o mesmo for utilizado for utilizado fora dos padrões e ou limites de carga e/ou de rotação especificadas pelo fabricante, ou, ainda, se for utilizado em competições de qualquer espécie ou natureza, além do que, se tiver sua manutenção negligenciada.',
+      '',
+      'Todo e qualquer serviço e ou conserto coberto por esta garantia deverá ser executado somente por assistência técnica ou oficina mecânica credenciada por esta VENDEDORA e somente após o orçamento aprovado pela VENDEDORA.',
+      '',
+      'Qualquer manutenção feita pelo COMPRADOR (A) em oficina própria do mesmo decorrente do mau uso ao longo do tempo, sem comunicação e autorização da VENDEDORA após apuração em laudo de vistoria, não será ressarcido pela VENDEDORA, nem ressarcido a titulo de compensação.',
+      '',
+      'Considera-se fora da presente garantia itens de desgaste natural e vida útil pré-determinados: discos e platô de embreagem, discos, tambores, pastilhas e lonas de freio, cabos de vela, correias em geral, bateria, amortecedores, e molas, juntas homocinética, conjunto de suspensão, sistema de lubrificação e pressão do óleo, entre outros incluindo ainda os itens considerados de manutenção normal, como limpeza de bicos injetores, fluídos e óleos em geral, equipamentos e acessórios rádios, compact disc, toca fitas, conjunto de som e alarmes, rodas, pneus, painel de instrumentos, carroceria e pintura em geral. Todo e qualquer custo ou outra forma de compensação, a qualquer título, de despesas ou danos, diretos ou indiretos, causados por pessoas ou bens em decorrência de defeito verificado no veículo, tais como despesas com taxi, Uber, guincho, alimentação, hospedagem, etc., é de única e exclusiva responsabilidade do COMPRADOR (A).',
+      '',
+      'Para atendimento da garantia, deverá o comprador apresentar manifestação por escrito, dentro do prazo legal estipulado em Cláusula Sétima, objeto de pesquisa, análise ou perícia técnica pela VENDEDORA e, caso, assim não proceda, estará automaticamente precluso infringindo as cláusulas contratuais especificadas.',
+      '',
+      'DA TRANSFERÊNCIA DO BEM',
+      '',
+      'Cláusula Oitava: A transferência do bem objeto do presente instrumento para o nome do COMPRADOR (A) ou de alguém por ele determinado é obrigatória, porém, só se dará após a total quitação do bem descrito na Cláusula Primeira – OBJETO, sendo que na hipótese de pagamento em cheques(s) ou qualquer outro título de crédito, após a compensação ou quitação do(s) mesmo(s), de acordo com o Art. 123 § 1ª do Código de Trânsito Brasileiro (Lei Federal nº 9503 de 23/09/1997)',
+      '',
+      'Dados da Transferência: SERVIÇO DE DESPACHANTE, Valor R$ 1.000,00',
+      '',
+      'DA CLÁUSULA RESOLUTIVA',
+      '',
+      'Cláusula Nona: As partes VENDEDORA e COMPRADOR (A) estabelecem desde já, que no caso de não cumprimento do presente, quanto aos pagamentos devidos pelo COMPRADOR (A) a VENDEDORA, nos quais foram firmados em comum acordo entre as partes perfeitamente capazes e isentas de quaisquer vícios que pudessem macular o ato, na presença de testemunhas, portanto operou a concretização de um ato jurídico perfeito, fazendo lei entre as partes, forma e prazos estabelecidos no bojo deste instrumento particular de contrato de compra e venda de veículo usado, permitirá a VENDEDORA, como melhor lhe aprouver, pedir a resolução do contrato, ou, se preferir, exigir o cumprimento do mesmo, independentemente de notificação ou interpelação, nos termos do que reza o artigo 475 do Código Civil Brasileiro.',
+      '',
+      'Fica desde já firmado entre as partes, que após a assinatura de deste contrato de compra e venda de veículo usado e antes da respectiva transferência do veículo pela parte VENDEDORA, é facultada a desistência pelo COMPRADOR (A), obrigando-se ao pagamento de multa no valor de 10% (dez por cento) sobre o valor do veículo objeto deste contrato, a título de multa contratual, o COMPRADOR (A) manifestam sua especial aceitação e anuência, nada mais tendo a reclamar..',
+      '',
+      'Cláusula Décima: Nos termos do que estabelece o artigo 629 do Código Civil Brasileiro, o COMPRADOR (A), assume de forma gratuita, a condição de depositário do bem objeto do presente, obrigando-se pela guarda e conservação do mesmo, até o integral pagamento do preço.',
+      '',
+      'SITUAÇÃO DE REGULARIDADE',
+      '',
+      'Cláusula Décima Primeira:',
+      '',
+      '- Valor aproximado dos tributos: 16,33% IBPT',
+      '',
+      '- Furto: Nada Consta',
+      '',
+      '- Multas e taxas anuais em aberto:',
+      '',
+      '- Autuações: Serão quitadas somente quando forem convertidas em multas',
+      '',
+      '- Alienação fiduciária: Nada consta',
+      '',
+      '- Impedimentos Administrativos: Nada consta',
+      '',
+      '- Impedimentos Judiciais: Nada consta',
+      '',
+      '- Outros registros impeditivos a circulação do veículo: Nada consta',
+      '',
+      '- IPVA do ano corrente é de responsabilidade do comprador.',
+      '',
+      'FORO DE ELEIÇÃO',
+      '',
+      'Cláusula Décima Segunda: Para dirimir quaisquer dúvidas decorrentes do presente, as partes elegem e estabelecem desde já, com exclusividade, o foro da COMARCA DA VENDEDORA, por mais privilegiado que outro possa ser.',
+      '',
+      'O COMPRADOR (A), de livre e espontânea vontade, RENUNCIA ao foro previsto no artigo 101 – inciso I do Código de Defesa do Consumidor.',
+      '',
+      'E, pra que produza seus efeitos legais e jurídicos, firmam o presente termo, de igual teor em 02 (duas) vias na presença de 01 (uma) testemunha.'
+    ];
+
+    const titulosSecao = [
+      'DA VISTORIA E AVALIAÇÃO DO VEÍCULO',
+      'DA RESPONSABILIDADE CIVIL E CRIMINAL',
+      'DA GARANTIA',
+      'DA TRANSFERÊNCIA DO BEM',
+      'DA CLÁUSULA RESOLUTIVA',
+      'SITUAÇÃO DE REGULARIDADE',
+      'FORO DE ELEIÇÃO'
+    ];
+
+    textoCondicoes.forEach(paragrafo => {
+      if (paragrafo === '') {
+        yPos += 3;
+      } else if (titulosSecao.includes(paragrafo)) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text(paragrafo, margin, yPos);
+        yPos += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+      } else {
+        const lines = doc.splitTextToSize(paragrafo, maxWidth);
+        doc.text(lines, margin, yPos);
+        yPos += lines.length * 5;
+      }
+      
+      if (yPos > 250) {
+        doc.addPage();
+        yPos = 20;
+      }
+    });
+
+    yPos += 10;
+
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const cidadeEmpresa = companyData?.city || 'Goiânia';
+    doc.text(`${cidadeEmpresa}, ${dataAtual}.`, margin, yPos);
+    yPos += 20;
+
+    const assinaturaY = yPos;
+    const assinaturaVendedorX = margin;
+    const assinaturaCompradorX = pageWidth / 2 + 10;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('___________________________', assinaturaVendedorX, yPos);
+    yPos += 6;
+    doc.text('VENDEDORA', assinaturaVendedorX, yPos);
+    yPos += 6;
+    doc.text(vendedoraNome, assinaturaVendedorX, yPos);
+    yPos += 6;
+    doc.text(`CNPJ: ${vendedoraCnpj}`, assinaturaVendedorX, yPos);
+
+    yPos = assinaturaY;
+    doc.text('___________________________', assinaturaCompradorX, yPos);
+    yPos += 6;
+    doc.text('COMPRADOR(A)', assinaturaCompradorX, yPos);
+    yPos += 6;
+    doc.text(compradorNome, assinaturaCompradorX, yPos);
+    yPos += 6;
+    doc.text(`CPF/CNPJ: ${compradorCpfCnpj}`, assinaturaCompradorX, yPos);
+
+    doc.save(`Contrato_Venda_${numeroContrato}_${dataAtual.replace(/\//g, '_')}.pdf`);
+  };
+
+  const gerarPDFTermoEntrega = async () => {
+    const userData = localStorage.getItem('user_data');
+    const accessToken = localStorage.getItem('supabase_access_token');
+    
+    if (!userData || !accessToken) {
+      alert('Erro ao gerar PDF: dados do usuário não encontrados');
+      return;
+    }
+
+    const user = JSON.parse(userData);
+    let companyData = null;
+
+    try {
+      const companyResponse = await fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/companies?id=eq.${user.company_id}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (companyResponse.ok) {
+        const data = await companyResponse.json();
+        if (data.length > 0) {
+          companyData = data[0];
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados da empresa:', error);
+    }
+
+    const doc = new jsPDF();
+    let yPos = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - (margin * 2);
+
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    if (companyData?.logo_url) {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = companyData.logo_url;
+        
+        await new Promise((resolve, reject) => {
+          img.onload = () => {
+            const logoWidth = 60;
+            const logoHeight = (img.height * logoWidth) / img.width;
+            doc.addImage(img.src, 'PNG', pageWidth - margin - logoWidth, yPos, logoWidth, logoHeight);
+            yPos += logoHeight + 10;
+            resolve(null);
+          };
+          img.onerror = reject;
+        });
+      } catch (error) {
+        console.error('Erro ao carregar logo:', error);
+      }
+    }
+
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TERMO DE ENTREGA DE VEÍCULO', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 15;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Data: ${dataAtual}`, margin, yPos);
+    doc.text(`Hora: ${horaAtual}`, pageWidth - margin, yPos, { align: 'right' });
+    yPos += 12;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('DADOS DA EMPRESA VENDEDORA', margin, yPos);
+    yPos += 8;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const empresaNome = companyData?.name || 'Não informado';
+    const empresaCnpj = companyData?.document || companyData?.cnpj || 'Não informado';
+    const empresaEndereco = companyData?.address || 'Não informado';
+    const empresaCidade = companyData?.city || 'Não informado';
+    const empresaEstado = companyData?.state || 'Não informado';
+    const empresaCep = companyData?.zip_code || 'Não informado';
+    const empresaTelefone = companyData?.phone || 'Não informado';
+    const empresaEmail = companyData?.email || 'Não informado';
+
+    doc.text(`Razão Social: ${empresaNome}`, margin, yPos);
+    yPos += 6;
+    doc.text(`CNPJ: ${empresaCnpj}`, margin, yPos);
+    yPos += 6;
+    const enderecoCompleto = `${empresaEndereco}, ${empresaCidade}/${empresaEstado}${empresaCep ? ', CEP: ' + empresaCep : ''}`;
+    const enderecoLines = doc.splitTextToSize(`Endereço: ${enderecoCompleto}`, maxWidth);
+    doc.text(enderecoLines, margin, yPos);
+    yPos += enderecoLines.length * 6;
+    doc.text(`Telefone: ${empresaTelefone}`, margin, yPos);
+    yPos += 6;
+    doc.text(`E-mail: ${empresaEmail}`, margin, yPos);
+    yPos += 12;
+
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('DADOS DO COMPRADOR', margin, yPos);
+    yPos += 8;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const compradorNome = formalizationClient.nome || clientData?.nomeCliente || 'Não informado';
+    const compradorCpfCnpj = formalizationClient.cpfCnpj || 'Não informado';
+    const compradorRg = formalizationClient.rgIe || 'Não informado';
+    const compradorTelefone = formalizationClient.telefone || clientData?.telefone || 'Não informado';
+    const compradorEmail = formalizationClient.email || clientData?.email || 'Não informado';
+    const compradorCep = formalizationClient.cep || 'Não informado';
+    const compradorEndereco = formalizationClient.endereco || 'Não informado';
+    const compradorCidade = formalizationClient.cidade || 'Não informado';
+    const compradorEstado = formalizationClient.estado || 'Não informado';
+
+    doc.text(`Nome: ${compradorNome}`, margin, yPos);
+    yPos += 6;
+    doc.text(`CPF/CNPJ: ${compradorCpfCnpj}`, margin, yPos);
+    yPos += 6;
+    doc.text(`RG/IE: ${compradorRg}`, margin, yPos);
+    yPos += 6;
+    doc.text(`Telefone: ${compradorTelefone}`, margin, yPos);
+    yPos += 6;
+    doc.text(`E-mail: ${compradorEmail}`, margin, yPos);
+    yPos += 6;
+    const compradorEnderecoCompleto = `${compradorEndereco}${compradorCep ? ', CEP: ' + compradorCep : ''}, ${compradorCidade}/${compradorEstado}`;
+    const compradorEnderecoLines = doc.splitTextToSize(`Endereço: ${compradorEnderecoCompleto}`, maxWidth);
+    doc.text(compradorEnderecoLines, margin, yPos);
+    yPos += compradorEnderecoLines.length * 6 + 12;
+
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('DADOS DO VEÍCULO ENTREGUE', margin, yPos);
+    yPos += 8;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const veiculoMarca = dadosVeiculo.marca || clientData?.marca || 'Não informado';
+    const veiculoModelo = dadosVeiculo.modelo || clientData?.modelo || 'Não informado';
+    const veiculoAno = dadosVeiculo.ano || clientData?.ano || 'Não informado';
+    const veiculoCor = dadosVeiculo.cor || 'Não informado';
+    const veiculoPlaca = dadosVeiculo.placa || 'Não informado';
+    const veiculoChassi = dadosVeiculo.chassi || 'Não informado';
+    const veiculoRenavam = dadosVeiculo.renavam || 'Não informado';
+
+    const col1X = margin;
+    const col2X = margin + 100;
+    const lineHeight = 7;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Marca/Modelo:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${veiculoMarca} ${veiculoModelo}`, col2X, yPos);
+    yPos += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Ano:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoAno, col2X, yPos);
+    yPos += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Cor:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoCor, col2X, yPos);
+    yPos += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Placa:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoPlaca, col2X, yPos);
+    yPos += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Chassi:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoChassi || 'Não informado', col2X, yPos);
+    yPos += lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('RENAVAM:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(veiculoRenavam, col2X, yPos);
+    yPos += 12;
+
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('DADOS DA ENTREGA', margin, yPos);
+    yPos += 8;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const dataHoraEntrega = formalizationDelivery.dataHora ? formatDateBR(formalizationDelivery.dataHora) : dataAtual;
+    const horaEntrega = formalizationDelivery.dataHora ? new Date(formalizationDelivery.dataHora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : horaAtual;
+    const kmEntrega = formalizationDelivery.km || 'Não informado';
+    const observacaoEntrega = formalizationDelivery.observacao || '';
+
+    doc.text(`Data da Entrega: ${dataHoraEntrega}`, margin, yPos);
+    yPos += 6;
+    doc.text(`Hora da Entrega: ${horaEntrega}`, margin, yPos);
+    yPos += 6;
+    doc.text(`Quilometragem: ${kmEntrega} km`, margin, yPos);
+    yPos += 6;
+    doc.text(`Manual do Veículo: ${formalizationDelivery.manualEntregue ? 'Sim' : 'Não'}`, margin, yPos);
+    yPos += 6;
+    doc.text(`Chave Reserva: ${formalizationDelivery.chaveReservaEntregue ? 'Sim' : 'Não'}`, margin, yPos);
+    yPos += 12;
+
+    if (observacaoEntrega) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Observações:', margin, yPos);
+      yPos += 6;
+      doc.setFont('helvetica', 'normal');
+      const obsLines = doc.splitTextToSize(observacaoEntrega, maxWidth);
+      doc.text(obsLines, margin, yPos);
+      yPos += obsLines.length * 6 + 12;
+    }
+
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const textoDeclaracao = 'Declaro para os devidos fins, que recebi o veículo acima descrito em perfeitas condições de uso e conservação, estando de acordo com o estado em que se encontra, comprometendo-me a efetuar a transferência de propriedade do mesmo no prazo legal estabelecido.';
+    const declaracaoLines = doc.splitTextToSize(textoDeclaracao, maxWidth);
+    doc.text(declaracaoLines, margin, yPos);
+    yPos += declaracaoLines.length * 6 + 15;
+
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const cidadeEmpresa = companyData?.city || 'Goiânia';
+    doc.text(`${cidadeEmpresa}, ${dataAtual} às ${horaAtual}.`, margin, yPos);
+    yPos += 20;
+
+    const assinaturaY = yPos;
+    const assinaturaVendedorX = margin;
+    const assinaturaCompradorX = pageWidth / 2 + 10;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('___________________________', assinaturaVendedorX, yPos);
+    yPos += 6;
+    doc.text('VENDEDORA', assinaturaVendedorX, yPos);
+    yPos += 6;
+    doc.text(empresaNome, assinaturaVendedorX, yPos);
+    yPos += 6;
+    doc.text(`CNPJ: ${empresaCnpj}`, assinaturaVendedorX, yPos);
+
+    yPos = assinaturaY;
+    doc.text('___________________________', assinaturaCompradorX, yPos);
+    yPos += 6;
+    doc.text('COMPRADOR(A)', assinaturaCompradorX, yPos);
+    yPos += 6;
+    doc.text(compradorNome, assinaturaCompradorX, yPos);
+    yPos += 6;
+    doc.text(`CPF/CNPJ: ${compradorCpfCnpj}`, assinaturaCompradorX, yPos);
+
+    doc.save(`Termo_Entrega_${veiculoMarca}_${veiculoModelo}_${dataAtual.replace(/\//g, '_')}.pdf`);
   };
 
   const renderTabContent = () => {
@@ -3404,6 +4185,7 @@ export default function Appointment() {
             <div className="flex justify-end">
               <button
                 type="button"
+                onClick={gerarPDFContrato}
                 className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
               >
                 Imprimir
@@ -3529,6 +4311,7 @@ export default function Appointment() {
               <div className="flex justify-end space-x-4 pt-6 border-t">
                 <button
                   type="button"
+                  onClick={gerarPDFTermoEntrega}
                   className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
                 >
                   Imprimir termo de entrega
