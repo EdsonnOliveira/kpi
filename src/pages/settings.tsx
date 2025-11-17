@@ -4,7 +4,7 @@ import Input from "../components/Input";
 import Select from "../components/Select";
 import Button from "../components/Button";
 import Switch from "../components/Switch";
-import { applyPhoneMask, removePhoneMask, applyCepMask, removeCepMask } from "../lib/formatting";
+import { applyPhoneMask, removePhoneMask, applyCepMask, removeCepMask, applyCurrencyMask, removeCurrencyMask } from "../lib/formatting";
 
 interface Integration {
   id: string;
@@ -21,6 +21,13 @@ interface Integration {
   };
 }
 
+interface WorkSchedule {
+  id: string;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+}
+
 interface User {
   id: string;
   name: string;
@@ -32,6 +39,10 @@ interface User {
   city: string;
   state: string;
   zip_code: string;
+  birth_date?: string;
+  admission_date?: string;
+  salary?: number;
+  work_schedule?: WorkSchedule[] | string;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -312,6 +323,10 @@ export default function Settings() {
     city: "",
     state: "",
     zip_code: "",
+    birth_date: "",
+    admission_date: "",
+    salary: "",
+    work_schedule: [] as WorkSchedule[],
     password: ""
   });
 
@@ -438,6 +453,19 @@ export default function Settings() {
   };
 
   const handleEditUser = (user: User) => {
+    let workSchedule: WorkSchedule[] = [];
+    if (user.work_schedule) {
+      if (typeof user.work_schedule === 'string') {
+        try {
+          workSchedule = JSON.parse(user.work_schedule);
+        } catch {
+          workSchedule = [];
+        }
+      } else {
+        workSchedule = user.work_schedule;
+      }
+    }
+
     setUserForm({
       name: user.name || "",
       email: user.email || "",
@@ -448,6 +476,10 @@ export default function Settings() {
       city: user.city || "",
       state: user.state || "",
       zip_code: user.zip_code ? applyCepMask(user.zip_code) : "",
+      birth_date: user.birth_date || "",
+      admission_date: user.admission_date || "",
+      salary: user.salary ? applyCurrencyMask(user.salary.toString()) : "",
+      work_schedule: workSchedule,
       password: ""
     });
     setEditingUserId(user.id);
@@ -467,6 +499,10 @@ export default function Settings() {
       city: "",
       state: "",
       zip_code: "",
+      birth_date: "",
+      admission_date: "",
+      salary: "",
+      work_schedule: [],
       password: ""
     });
   };
@@ -516,6 +552,10 @@ export default function Settings() {
         city: "",
         state: "",
         zip_code: "",
+        birth_date: "",
+        admission_date: "",
+        salary: "",
+        work_schedule: [],
         password: ""
       });
       fetchUsers();
@@ -569,7 +609,11 @@ export default function Settings() {
             address: userForm.address || null,
             city: userForm.city || null,
             state: userForm.state || null,
-            zip_code: removeCepMask(userForm.zip_code) || null
+            zip_code: removeCepMask(userForm.zip_code) || null,
+            birth_date: userForm.birth_date || null,
+            admission_date: userForm.admission_date || null,
+            salary: userForm.salary ? parseFloat(removeCurrencyMask(userForm.salary)) : null,
+            work_schedule: userForm.work_schedule.length > 0 ? JSON.stringify(userForm.work_schedule) : null
           })
         });
 
@@ -591,6 +635,10 @@ export default function Settings() {
           city: "",
           state: "",
           zip_code: "",
+          birth_date: "",
+          admission_date: "",
+          salary: "",
+          work_schedule: [],
           password: ""
         });
         fetchUsers();
@@ -694,6 +742,10 @@ export default function Settings() {
           city: userForm.city || null,
           state: userForm.state || null,
           zip_code: removeCepMask(userForm.zip_code) || null,
+          birth_date: userForm.birth_date || null,
+          admission_date: userForm.admission_date || null,
+          salary: userForm.salary ? parseFloat(removeCurrencyMask(userForm.salary)) : null,
+          work_schedule: userForm.work_schedule.length > 0 ? JSON.stringify(userForm.work_schedule) : null,
           company_id: user.company_id,
           active: true
         })
@@ -717,6 +769,10 @@ export default function Settings() {
         city: "",
         state: "",
         zip_code: "",
+        birth_date: "",
+        admission_date: "",
+        salary: "",
+        work_schedule: [],
         password: ""
       });
       fetchUsers();
@@ -1170,6 +1226,146 @@ export default function Settings() {
                 showPassword={true}
               />
             )}
+            <Input
+              label="Data de Nascimento"
+              type="date"
+              name="birth_date"
+              value={userForm.birth_date}
+              onChange={(e) => setUserForm({...userForm, birth_date: e.target.value})}
+            />
+            <Input
+              label="Data de Admissão"
+              type="date"
+              name="admission_date"
+              value={userForm.admission_date}
+              onChange={(e) => setUserForm({...userForm, admission_date: e.target.value})}
+            />
+            <Input
+              label="Salário"
+              type="text"
+              name="salary"
+              value={userForm.salary}
+              onChange={(e) => {
+                const maskedValue = applyCurrencyMask(e.target.value);
+                setUserForm({...userForm, salary: maskedValue});
+              }}
+              placeholder="0,00"
+            />
+          </div>
+
+          <div>
+            <h4 className="text-lg font-medium text-gray-900 mb-4">Escala de Trabalho</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Dia da Semana
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Hora Inicial
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Hora Final
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {userForm.work_schedule.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                        Nenhum dia adicionado. Clique em "Adicionar Dia" para começar.
+                      </td>
+                    </tr>
+                  ) : (
+                    userForm.work_schedule.map((schedule, index) => (
+                      <tr key={schedule.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Select
+                            name={`day_of_week_${index}`}
+                            value={schedule.day_of_week}
+                            onChange={(e) => {
+                              const updatedSchedule = [...userForm.work_schedule];
+                              updatedSchedule[index].day_of_week = e.target.value;
+                              setUserForm({...userForm, work_schedule: updatedSchedule});
+                            }}
+                          >
+                            <option value="">Selecione</option>
+                            <option value="Segunda-feira">Segunda-feira</option>
+                            <option value="Terça-feira">Terça-feira</option>
+                            <option value="Quarta-feira">Quarta-feira</option>
+                            <option value="Quinta-feira">Quinta-feira</option>
+                            <option value="Sexta-feira">Sexta-feira</option>
+                            <option value="Sábado">Sábado</option>
+                            <option value="Domingo">Domingo</option>
+                          </Select>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Input
+                            type="time"
+                            name={`start_time_${index}`}
+                            value={schedule.start_time}
+                            onChange={(e) => {
+                              const updatedSchedule = [...userForm.work_schedule];
+                              updatedSchedule[index].start_time = e.target.value;
+                              setUserForm({...userForm, work_schedule: updatedSchedule});
+                            }}
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Input
+                            type="time"
+                            name={`end_time_${index}`}
+                            value={schedule.end_time}
+                            onChange={(e) => {
+                              const updatedSchedule = [...userForm.work_schedule];
+                              updatedSchedule[index].end_time = e.target.value;
+                              setUserForm({...userForm, work_schedule: updatedSchedule});
+                            }}
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const updatedSchedule = userForm.work_schedule.filter((_, i) => i !== index);
+                              setUserForm({...userForm, work_schedule: updatedSchedule});
+                            }}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Remover
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4">
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => {
+                  const newSchedule: WorkSchedule = {
+                    id: Date.now().toString(),
+                    day_of_week: "",
+                    start_time: "",
+                    end_time: ""
+                  };
+                  setUserForm({
+                    ...userForm,
+                    work_schedule: [...userForm.work_schedule, newSchedule]
+                  });
+                }}
+              >
+                Adicionar Dia
+              </Button>
+            </div>
           </div>
 
           <div>
