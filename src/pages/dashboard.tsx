@@ -20,6 +20,9 @@ interface DashboardData {
     expenses: number;
     profit: number;
     pending: number;
+    overdue: number;
+    toVenc: number;
+    cashFlow: number;
   };
   workshop: {
     active: number;
@@ -41,6 +44,12 @@ interface DashboardData {
     activeAds: number;
     totalViews: number;
     totalContacts: number;
+    byPlatform: {
+      olx: number;
+      webmotors: number;
+      mercadoLivre: number;
+      outros: number;
+    };
   };
   accounts: {
     toReceive: number;
@@ -164,6 +173,16 @@ export default function Dashboard() {
         }
       });
 
+      // Buscar dados de transações
+      const transactionsResponse = await fetch(`${SUPABASE_URL}/rest/v1/transactions?company_id=eq.${user.company_id}`, {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
       // Buscar dados de peças
       const partsResponse = await fetch(`${SUPABASE_URL}/rest/v1/parts?company_id=eq.${user.company_id}`, {
         method: 'GET',
@@ -174,7 +193,7 @@ export default function Dashboard() {
         }
       });
 
-      if (salesResponse.ok && vehiclesResponse.ok && leadsResponse.ok && customersResponse.ok && proposalsResponse.ok && adsResponse.ok && accountsResponse.ok && partsResponse.ok) {
+      if (salesResponse.ok && vehiclesResponse.ok && leadsResponse.ok && customersResponse.ok && proposalsResponse.ok && adsResponse.ok && accountsResponse.ok && transactionsResponse.ok && partsResponse.ok) {
         const sales = await salesResponse.json();
         const vehicles = await vehiclesResponse.json();
         const leads = await leadsResponse.json();
@@ -182,6 +201,7 @@ export default function Dashboard() {
         const proposals = await proposalsResponse.json();
         const ads = await adsResponse.json();
         const accounts = await accountsResponse.json();
+        const transactions = await transactionsResponse.json();
         const parts = await partsResponse.json();
 
         // Calcular dados do dashboard
@@ -202,6 +222,43 @@ export default function Dashboard() {
         const totalReceber = accounts
           .filter((account: any) => account.type.toLowerCase() === 'receita' || account.type.toLowerCase() === 'ativo')
           .reduce((sum: number, account: any) => sum + (account.balance || 0), 0);
+
+        // Calcular transações vencidas e a vencer
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const sevenDaysFromNow = new Date(today);
+        sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+        const transactionsVencidas = transactions
+          .filter((transaction: any) => {
+            if (!transaction.transaction_date) return false;
+            const transactionDate = new Date(transaction.transaction_date);
+            transactionDate.setHours(0, 0, 0, 0);
+            return transactionDate < today && transaction.type.toLowerCase() === 'receita';
+          })
+          .reduce((sum: number, transaction: any) => sum + Math.abs(transaction.amount || 0), 0);
+
+        const transactionsAVencer = transactions
+          .filter((transaction: any) => {
+            if (!transaction.transaction_date) return false;
+            const transactionDate = new Date(transaction.transaction_date);
+            transactionDate.setHours(0, 0, 0, 0);
+            return transactionDate >= today && transactionDate <= sevenDaysFromNow && transaction.type.toLowerCase() === 'receita';
+          })
+          .reduce((sum: number, transaction: any) => sum + Math.abs(transaction.amount || 0), 0);
+
+        const fluxoCaixa = Math.abs(totalReceber) - Math.abs(totalPagar);
+
+        // Calcular dados de anúncios por plataforma
+        const adsByPlatform = {
+          olx: ads.filter((a: any) => a.platform && a.platform.toLowerCase().includes('olx')).length,
+          webmotors: ads.filter((a: any) => a.platform && a.platform.toLowerCase().includes('webmotors')).length,
+          mercadoLivre: ads.filter((a: any) => a.platform && (a.platform.toLowerCase().includes('mercado') || a.platform.toLowerCase().includes('livre'))).length,
+          outros: ads.filter((a: any) => {
+            const platform = a.platform ? a.platform.toLowerCase() : '';
+            return !platform.includes('olx') && !platform.includes('webmotors') && !platform.includes('mercado') && !platform.includes('livre');
+          }).length
+        };
 
         // Calcular dados de peças
         const totalPartsValue = parts.reduce((sum: number, part: any) => sum + ((part.sale_price || 0) * (part.stock_quantity || 0)), 0);
@@ -240,9 +297,12 @@ export default function Dashboard() {
           },
           financial: {
             revenue: totalRevenue,
-            expenses: totalRevenue * 0.6, // Estimativa
-            profit: totalRevenue * 0.4, // Estimativa
-            pending: proposals.reduce((sum: number, p: any) => sum + (p.proposal_price || 0), 0)
+            expenses: totalRevenue * 0.6,
+            profit: totalRevenue * 0.4,
+            pending: Math.abs(totalReceber),
+            overdue: transactionsVencidas,
+            toVenc: transactionsAVencer,
+            cashFlow: fluxoCaixa
           },
           workshop: {
             active: 12,
@@ -256,14 +316,15 @@ export default function Dashboard() {
             proposals: proposals.length,
             conversions: sales.length,
             customers: customers.length,
-            users: 3,
-            suppliers: 8
+            users: 0,
+            suppliers: 0
           },
           integrator: {
             totalAds: ads.length,
             activeAds: ads.filter((a: any) => a.status === 'active').length,
-            totalViews: 15420,
-            totalContacts: 342
+            totalViews: 0,
+            totalContacts: 0,
+            byPlatform: adsByPlatform
           },
           accounts: {
             toReceive: Math.abs(totalReceber),
@@ -314,7 +375,10 @@ export default function Dashboard() {
     revenue: 0,
     expenses: 0,
     profit: 0,
-    pending: 0
+    pending: 0,
+    overdue: 0,
+    toVenc: 0,
+    cashFlow: 0
   };
 
   const workshopData = dashboardData?.workshop || {
@@ -339,7 +403,13 @@ export default function Dashboard() {
     totalAds: 0,
     activeAds: 0,
     totalViews: 0,
-    totalContacts: 0
+    totalContacts: 0,
+    byPlatform: {
+      olx: 0,
+      webmotors: 0,
+      mercadoLivre: 0,
+      outros: 0
+    }
   };
 
   const partsData = dashboardData?.parts || {
@@ -607,25 +677,40 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Oficina e Serviços */}
+            {/* Integrador de Anúncios */}
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Oficina e Serviços</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600">{workshopData.active}</p>
-                  <p className="text-sm text-gray-600">OS Ativas</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Integrador de Anúncios</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Total de Anúncios</span>
+                  <span className="text-lg font-bold text-gray-900">{integratorData.totalAds}</span>
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">{workshopData.completed}</p>
-                  <p className="text-sm text-gray-600">Concluídas</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Anúncios Ativos</span>
+                  <span className="text-lg font-bold text-green-600">{integratorData.activeAds}</span>
                 </div>
-                <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                  <p className="text-2xl font-bold text-yellow-600">{workshopData.pending}</p>
-                  <p className="text-sm text-gray-600">Pendentes</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Total de Visualizações</span>
+                  <span className="text-lg font-bold text-blue-600">{integratorData.totalViews.toLocaleString()}</span>
                 </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <p className="text-2xl font-bold text-purple-600">R$ {workshopData.revenue.toLocaleString()}</p>
-                  <p className="text-sm text-gray-600">Receita</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Total de Contatos</span>
+                  <span className="text-lg font-bold text-purple-600">{integratorData.totalContacts}</span>
+                </div>
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Por Canal</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">OLX: {integratorData.byPlatform.olx}</span>
+                      <span className="text-gray-600">Webmotors: {integratorData.byPlatform.webmotors}</span>
+                      <span className="text-gray-600">Mercado Livre: {integratorData.byPlatform.mercadoLivre}</span>
+                    </div>
+                    {integratorData.byPlatform.outros > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Outros: {integratorData.byPlatform.outros}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -664,78 +749,19 @@ export default function Dashboard() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Vencidas</span>
-                  <span className="text-lg font-bold text-red-600">R$ 45.000</span>
+                  <span className="text-lg font-bold text-red-600">R$ {financialData.overdue.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">A vencer (7 dias)</span>
-                  <span className="text-lg font-bold text-yellow-600">R$ 78.000</span>
+                  <span className="text-lg font-bold text-yellow-600">R$ {financialData.toVenc.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Fluxo de Caixa</span>
-                  <span className="text-lg font-bold text-blue-600">R$ 125.000</span>
+                  <span className={`text-lg font-bold ${financialData.cashFlow >= 0 ? 'text-blue-600' : 'text-red-600'}`}>R$ {financialData.cashFlow.toLocaleString()}</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Indicadores de Performance</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Ticket Médio</span>
-                  <span className="text-lg font-bold text-gray-900">R$ 89.362</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Taxa de Conversão</span>
-                  <span className="text-lg font-bold text-green-600">13%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Tempo Médio Venda</span>
-                  <span className="text-lg font-bold text-gray-900">18 dias</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Satisfação Cliente</span>
-                  <span className="text-lg font-bold text-green-600">4.8/5</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Novas Seções - Funcionalidades Adicionadas */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
-            {/* Integrador de Anúncios */}
-            <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Integrador de Anúncios</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Total de Anúncios</span>
-                  <span className="text-lg font-bold text-gray-900">{integratorData.totalAds}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Anúncios Ativos</span>
-                  <span className="text-lg font-bold text-green-600">{integratorData.activeAds}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Total de Visualizações</span>
-                  <span className="text-lg font-bold text-blue-600">{integratorData.totalViews.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Total de Contatos</span>
-                  <span className="text-lg font-bold text-purple-600">{integratorData.totalContacts}</span>
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Por Canal</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">OLX: 12</span>
-                      <span className="text-gray-600">Webmotors: 8</span>
-                      <span className="text-gray-600">Mercado Livre: 4</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Estoque de Peças */}
             <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Estoque de Peças</h3>
               <div className="space-y-4">
@@ -755,22 +781,10 @@ export default function Dashboard() {
                   <span className="text-sm text-gray-600">Valor Total</span>
                   <span className="text-lg font-bold text-green-600">R$ {partsData.totalValue.toLocaleString()}</span>
                 </div>
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Por Categoria</h4>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">Motor: {partsCategories.motor}</span>
-                      <span className="text-gray-600">Suspensão: {partsCategories.suspensao}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-600">Freios: {partsCategories.freios}</span>
-                      <span className="text-gray-600">Elétrica: {partsCategories.eletrica}</span>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
+
 
           {/* Seção de Oficina e Agendamentos */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
@@ -1032,7 +1046,7 @@ export default function Dashboard() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Taxa de Conversão</span>
-                  <span className="text-lg font-bold text-green-600">13%</span>
+                  <span className="text-lg font-bold text-green-600">0%</span>
                 </div>
               </div>
             </div>
@@ -1043,18 +1057,18 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Meta Mensal</span>
-                  <span className="text-lg font-bold text-gray-900">R$ 5.000.000</span>
+                  <span className="text-lg font-bold text-gray-900">R$ 0</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Realizado</span>
-                  <span className="text-lg font-bold text-green-600">R$ 4.200.000</span>
+                  <span className="text-lg font-bold text-green-600">R$ 0</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">% da Meta</span>
-                  <span className="text-lg font-bold text-blue-600">84%</span>
+                  <span className="text-lg font-bold text-blue-600">0%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div className="bg-green-500 h-2 rounded-full" style={{ width: "84%" }}></div>
+                  <div className="bg-green-500 h-2 rounded-full" style={{ width: "0%" }}></div>
                 </div>
               </div>
             </div>
