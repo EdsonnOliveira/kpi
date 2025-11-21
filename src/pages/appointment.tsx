@@ -21,6 +21,9 @@ import FileUpload from "../components/FileUpload";
 import Input from "../components/Input";
 import Select from "../components/Select";
 import Textarea from "../components/Textarea";
+import AutocompleteInput from "../components/AutocompleteInput";
+import ResponsiveModal from "../components/ResponsiveModal";
+import { ResponsiveModalActions } from "../components/ResponsiveModal";
 import jsPDF from "jspdf";
 
 interface ClientData {
@@ -145,6 +148,13 @@ export default function Appointment() {
     uf: ""
   });
 
+  const [legalOwnerSearch, setLegalOwnerSearch] = useState("");
+  const [legalOwnerSearchResults, setLegalOwnerSearchResults] = useState<any[]>([]);
+  const [legalOwnerOptions, setLegalOwnerOptions] = useState<string[]>([]);
+  const [allLegalOwnerOptions, setAllLegalOwnerOptions] = useState<string[]>([]);
+  const [allLegalOwnerData, setAllLegalOwnerData] = useState<any[]>([]);
+  const [selectedLegalOwner, setSelectedLegalOwner] = useState<any | null>(null);
+
   const [proprietarioPosse, setProprietarioPosse] = useState({
     tipoDocumento: "CPF" as "CPF" | "CNPJ",
     cpf: "",
@@ -164,6 +174,26 @@ export default function Appointment() {
     estado: "",
     uf: ""
   });
+
+  const [posseOwnerSearch, setPosseOwnerSearch] = useState("");
+  const [posseOwnerSearchResults, setPosseOwnerSearchResults] = useState<any[]>([]);
+  const [posseOwnerOptions, setPosseOwnerOptions] = useState<string[]>([]);
+  const [allPosseOwnerOptions, setAllPosseOwnerOptions] = useState<string[]>([]);
+  const [allPosseOwnerData, setAllPosseOwnerData] = useState<any[]>([]);
+  const [selectedPosseOwner, setSelectedPosseOwner] = useState<any | null>(null);
+
+  const [showNewCustomerModal, setShowNewCustomerModal] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    name: "",
+    document: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    zip_code: ""
+  });
+  const [newCustomerType, setNewCustomerType] = useState<'legal' | 'posse'>('legal');
 
   const [dadosVeiculo, setDadosVeiculo] = useState({
     marca: "",
@@ -190,6 +220,34 @@ export default function Appointment() {
   const [existingLegalOwnerId, setExistingLegalOwnerId] = useState<number | null>(null);
   const [existingPosseOwnerId, setExistingPosseOwnerId] = useState<number | null>(null);
   const [existingVehicleEvaluationId, setExistingVehicleEvaluationId] = useState<number | null>(null);
+
+  // Estados para múltiplas avaliações
+  const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [selectedEvaluation, setSelectedEvaluation] = useState<any | null>(null);
+  const [isCreatingEvaluation, setIsCreatingEvaluation] = useState(false);
+  const [isViewingEvaluation, setIsViewingEvaluation] = useState(false);
+  const [isEditingEvaluation, setIsEditingEvaluation] = useState(false);
+  const [evaluationForm, setEvaluationForm] = useState({
+    customer_name: "",
+    seller: "",
+    category: "",
+    version: "",
+    marca: "",
+    modelo: "",
+    ano: "",
+    cor: "",
+    placa: "",
+    chassi: "",
+    renavam: "",
+    maisBarato: "",
+    fipe: "",
+    maisCaro: "",
+    precoMedio: "",
+    precoAvaliacao: "",
+    portas: "",
+    lugares: "",
+    valor: ""
+  });
 
   // Estados para edição de previsões
   const [editingPrevisaoId, setEditingPrevisaoId] = useState<number | null>(null);
@@ -237,10 +295,57 @@ export default function Appointment() {
 
   const tabs = [
     { id: "historico", label: "Histórico de atendimento" },
-    { id: "avaliacao", label: "Incluir avaliação" },
+    { id: "avaliacao", label: "Avaliações" },
     { id: "formalizacao", label: "Formalização" },
     { id: "entrega", label: "Entrega" }
   ];
+
+  const loadAllClients = async () => {
+    try {
+      const userData = localStorage.getItem('user_data');
+      const accessToken = localStorage.getItem('supabase_access_token');
+      
+      if (!userData || !accessToken) return;
+      
+      const user = JSON.parse(userData);
+
+      const response = await fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/customers?company_id=eq.${user.company_id}&select=id,name,document,email,phone,address,city,state,zip_code&order=name.asc&limit=500`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const clients = await response.json();
+        
+        const formatClientOption = (client: any) => {
+          const doc = client.document || '';
+          const cleanDoc = doc.replace(/\D/g, '');
+          let formattedDoc = '';
+          
+          if (cleanDoc.length === 11) {
+            formattedDoc = applyCpfMask(doc);
+          } else if (cleanDoc.length === 14) {
+            formattedDoc = applyCnpjMask(doc);
+          } else if (doc) {
+            formattedDoc = doc;
+          }
+          
+          return formattedDoc ? `${client.name} - ${formattedDoc}` : client.name;
+        };
+        
+        const options = clients.map(formatClientOption);
+        setAllLegalOwnerData(clients);
+        setAllLegalOwnerOptions(options);
+        setAllPosseOwnerData(clients);
+        setAllPosseOwnerOptions(options);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar clientes:', error);
+    }
+  };
 
   // Função para buscar opções dinâmicas
   const fetchDynamicOptions = async () => {
@@ -251,6 +356,8 @@ export default function Appointment() {
       if (!userData || !accessToken) return;
       
       const user = JSON.parse(userData);
+      
+      await loadAllClients();
 
       // Buscar usuários (vendedores)
       const usersResponse = await fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/users?company_id=eq.${user.company_id}&select=id,name&order=name.asc`, {
@@ -334,10 +441,42 @@ export default function Appointment() {
         "transferencia"
       ]);
 
+      await loadAllClients();
+
     } catch (err) {
       console.error('Erro ao buscar opções dinâmicas:', err);
     }
   };
+
+  useEffect(() => {
+    loadAllClients();
+  }, []);
+
+  useEffect(() => {
+    if (legalOwnerSearch && legalOwnerSearch.length > 0) {
+      const filtered = allLegalOwnerOptions.filter(option =>
+        option.toLowerCase().includes(legalOwnerSearch.toLowerCase())
+      );
+      if (filtered.length > 0) {
+        setLegalOwnerOptions(filtered);
+      }
+    } else {
+      setLegalOwnerOptions([]);
+    }
+  }, [legalOwnerSearch, allLegalOwnerOptions]);
+
+  useEffect(() => {
+    if (posseOwnerSearch && posseOwnerSearch.length > 0) {
+      const filtered = allPosseOwnerOptions.filter(option =>
+        option.toLowerCase().includes(posseOwnerSearch.toLowerCase())
+      );
+      if (filtered.length > 0) {
+        setPosseOwnerOptions(filtered);
+      }
+    } else {
+      setPosseOwnerOptions([]);
+    }
+  }, [posseOwnerSearch, allPosseOwnerOptions]);
 
   useEffect(() => {
     if (!id) return;
@@ -360,6 +499,13 @@ export default function Appointment() {
     // Carregar histórico de contatos
     loadContactHistory();
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'avaliacao' && id) {
+      loadAllEvaluations();
+    }
+  }, [activeTab, id]);
+
 
   // Função para buscar dados reais do cliente
   const fetchClientData = async () => {
@@ -513,6 +659,20 @@ export default function Appointment() {
             ? applyCnpjMask(legal.cnpj) 
             : (legal.cpf ? applyCpfMask(legal.cpf) : '');
           
+          const searchValue = documento ? `${legal.name} - ${documento}` : legal.name;
+          setLegalOwnerSearch(searchValue);
+          
+          const clientData = {
+            id: legal.id,
+            name: legal.name,
+            document: legal.cnpj || legal.cpf || '',
+            email: legal.email,
+            phone: legal.phone,
+            address: legal.address,
+            zip_code: legal.zip_code
+          };
+          setSelectedLegalOwner(clientData);
+          
           setProprietarioLegal({
             tipoDocumento: tipoDoc,
             cpf: tipoDoc === 'CPF' ? documento : '',
@@ -554,6 +714,20 @@ export default function Appointment() {
             ? applyCnpjMask(posse.cnpj) 
             : (posse.cpf ? applyCpfMask(posse.cpf) : '');
           
+          const searchValue = documento ? `${posse.name} - ${documento}` : posse.name;
+          setPosseOwnerSearch(searchValue);
+          
+          const clientData = {
+            id: posse.id,
+            name: posse.name,
+            document: posse.cnpj || posse.cpf || '',
+            email: posse.email,
+            phone: posse.phone,
+            address: posse.address,
+            zip_code: posse.zip_code
+          };
+          setSelectedPosseOwner(clientData);
+          
           setProprietarioPosse({
             tipoDocumento: tipoDoc,
             cpf: tipoDoc === 'CPF' ? documento : '',
@@ -576,8 +750,304 @@ export default function Appointment() {
         }
       }
 
-      // Carregar dados do veículo
-      const vehicleResponse = await fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/vehicle_evaluations?appointment_id=eq.${appointmentId}&company_id=eq.${user.company_id}`, {
+      loadAllEvaluations();
+
+    } catch (error) {
+      console.error('Erro ao carregar dados da avaliação:', error);
+    }
+  };
+
+  const searchClients = async (searchTerm: string, type: 'legal' | 'posse') => {
+    if (!searchTerm || searchTerm.length < 1) {
+      if (type === 'legal') {
+        setLegalOwnerSearchResults([]);
+        setLegalOwnerOptions([]);
+      } else {
+        setPosseOwnerSearchResults([]);
+        setPosseOwnerOptions([]);
+      }
+      return;
+    }
+
+    try {
+      const userData = localStorage.getItem('user_data');
+      const accessToken = localStorage.getItem('supabase_access_token');
+      
+      if (!userData || !accessToken) return;
+      
+      const user = JSON.parse(userData);
+      const cleanSearch = searchTerm.replace(/[^\w\s]/g, '');
+      const cleanDocument = searchTerm.replace(/\D/g, '');
+
+      const [nameResponse, docResponse] = await Promise.all([
+        fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/customers?company_id=eq.${user.company_id}&name.ilike.%${cleanSearch}%&select=id,name,document,email,phone,address,city,state,zip_code&limit=10`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
+          'Content-Type': 'application/json'
+        }
+        }),
+        cleanDocument.length >= 3 ? fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/customers?company_id=eq.${user.company_id}&document.ilike.%${cleanDocument}%&select=id,name,document,email,phone,address,city,state,zip_code&limit=10`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
+            'Content-Type': 'application/json'
+          }
+        }) : Promise.resolve(null)
+      ]);
+
+      const results: any[] = [];
+      
+      if (nameResponse.ok) {
+        const nameData = await nameResponse.json();
+        results.push(...nameData);
+      }
+      
+      if (docResponse && docResponse.ok) {
+        const docData = await docResponse.json();
+        const existingIds = new Set(results.map(r => r.id));
+        docData.forEach((item: any) => {
+          if (!existingIds.has(item.id)) {
+            results.push(item);
+          }
+        });
+      }
+
+      const uniqueResults = results.slice(0, 10);
+      
+      const formatClientOption = (client: any) => {
+        const doc = client.document || '';
+        const cleanDoc = doc.replace(/\D/g, '');
+        let formattedDoc = '';
+        
+        if (cleanDoc.length === 11) {
+          formattedDoc = applyCpfMask(doc);
+        } else if (cleanDoc.length === 14) {
+          formattedDoc = applyCnpjMask(doc);
+        } else if (doc) {
+          formattedDoc = doc;
+        }
+        
+        return formattedDoc ? `${client.name} - ${formattedDoc}` : client.name;
+      };
+      
+      if (type === 'legal') {
+        setLegalOwnerSearchResults(uniqueResults);
+        setLegalOwnerOptions(uniqueResults.map(formatClientOption));
+      } else {
+        setPosseOwnerSearchResults(uniqueResults);
+        setPosseOwnerOptions(uniqueResults.map(formatClientOption));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar clientes:', error);
+    }
+  };
+
+  const selectLegalOwner = (option: string) => {
+    const client = allLegalOwnerData.find(c => {
+      const doc = c.document || '';
+      const cleanDoc = doc.replace(/\D/g, '');
+      let formattedDoc = '';
+      
+      if (cleanDoc.length === 11) {
+        formattedDoc = applyCpfMask(doc);
+      } else if (cleanDoc.length === 14) {
+        formattedDoc = applyCnpjMask(doc);
+      } else if (doc) {
+        formattedDoc = doc;
+      }
+      
+      const formattedOption = formattedDoc ? `${c.name} - ${formattedDoc}` : c.name;
+      return formattedOption === option;
+    });
+    
+    if (!client) return;
+    
+    const document = client.document || '';
+    const cleanDoc = document.replace(/\D/g, '');
+    const isCNPJ = cleanDoc.length === 14;
+    
+    setSelectedLegalOwner(client);
+    setLegalOwnerSearch(option);
+    
+    setProprietarioLegal({
+      tipoDocumento: isCNPJ ? "CNPJ" : "CPF",
+      cpf: isCNPJ ? '' : (document ? applyCpfMask(document) : ''),
+      cnpj: isCNPJ ? (document ? applyCnpjMask(document) : '') : '',
+      inscricaoEstadual: '',
+      nome: client.name || '',
+      email: client.email || '',
+      celular: client.phone ? applyPhoneMask(client.phone) : '',
+      celular2: '',
+      dataNascimento: '',
+      cep: client.zip_code ? applyCepMask(client.zip_code) : '',
+      endereco: client.address || '',
+      numero: '',
+      complemento: '',
+      bairro: '',
+      cidade: client.city || '',
+      estado: client.state || '',
+      uf: client.state ? client.state.substring(0, 2).toUpperCase() : ''
+    });
+  };
+
+  const selectPosseOwner = (option: string) => {
+    const client = allPosseOwnerData.find(c => {
+      const doc = c.document || '';
+      const cleanDoc = doc.replace(/\D/g, '');
+      let formattedDoc = '';
+      
+      if (cleanDoc.length === 11) {
+        formattedDoc = applyCpfMask(doc);
+      } else if (cleanDoc.length === 14) {
+        formattedDoc = applyCnpjMask(doc);
+      } else if (doc) {
+        formattedDoc = doc;
+      }
+      
+      const formattedOption = formattedDoc ? `${c.name} - ${formattedDoc}` : c.name;
+      return formattedOption === option;
+    });
+    
+    if (!client) return;
+    
+    const document = client.document || '';
+    const cleanDoc = document.replace(/\D/g, '');
+    const isCNPJ = cleanDoc.length === 14;
+    
+    setSelectedPosseOwner(client);
+    setPosseOwnerSearch(option);
+    
+    setProprietarioPosse({
+      tipoDocumento: isCNPJ ? "CNPJ" : "CPF",
+      cpf: isCNPJ ? '' : (document ? applyCpfMask(document) : ''),
+      cnpj: isCNPJ ? (document ? applyCnpjMask(document) : '') : '',
+      inscricaoEstadual: '',
+      nome: client.name || '',
+      email: client.email || '',
+      celular: client.phone ? applyPhoneMask(client.phone) : '(61) 98195-0302',
+      celular2: '',
+      dataNascimento: '',
+      cep: client.zip_code ? applyCepMask(client.zip_code) : '',
+      endereco: client.address || '',
+      numero: '',
+      complemento: '',
+      bairro: '',
+      cidade: client.city || '',
+      estado: client.state || '',
+      uf: client.state ? client.state.substring(0, 2).toUpperCase() : ''
+    });
+  };
+
+  const saveNewCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const userData = localStorage.getItem('user_data');
+      const accessToken = localStorage.getItem('supabase_access_token');
+      
+      if (!userData || !accessToken) {
+        alert('Erro de autenticação');
+        return;
+      }
+      
+      const user = JSON.parse(userData);
+      const cleanDocument = newCustomerForm.document.replace(/\D/g, '');
+
+      const stateUF = newCustomerForm.state ? newCustomerForm.state.substring(0, 2).toUpperCase() : null;
+
+      const dataToSend = {
+        company_id: user.company_id,
+        name: newCustomerForm.name,
+        document: cleanDocument,
+        email: newCustomerForm.email || null,
+        phone: newCustomerForm.phone ? removePhoneMask(newCustomerForm.phone) : null,
+        address: newCustomerForm.address || null,
+        city: newCustomerForm.city || null,
+        state: stateUF,
+        zip_code: newCustomerForm.zip_code ? removeCepMask(newCustomerForm.zip_code) : null
+      };
+
+      const response = await fetch('https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/customers', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(dataToSend)
+      });
+
+      if (response.ok) {
+        const newCustomer = await response.json();
+        const createdCustomer = Array.isArray(newCustomer) ? newCustomer[0] : newCustomer;
+        alert('Cliente cadastrado com sucesso!');
+        
+        setShowNewCustomerModal(false);
+        setNewCustomerForm({
+          name: "",
+          document: "",
+          email: "",
+          phone: "",
+          address: "",
+          city: "",
+          state: "",
+          zip_code: ""
+        });
+
+        const formatClientOption = (client: any) => {
+          const doc = client.document || '';
+          const cleanDoc = doc.replace(/\D/g, '');
+          let formattedDoc = '';
+          
+          if (cleanDoc.length === 11) {
+            formattedDoc = applyCpfMask(doc);
+          } else if (cleanDoc.length === 14) {
+            formattedDoc = applyCnpjMask(doc);
+          } else if (doc) {
+            formattedDoc = doc;
+          }
+          
+          return formattedDoc ? `${client.name} - ${formattedDoc}` : client.name;
+        };
+
+        const newOption = formatClientOption(createdCustomer);
+        
+        setAllLegalOwnerData(prev => [...prev, createdCustomer]);
+        setAllLegalOwnerOptions(prev => [...prev, newOption]);
+        setAllPosseOwnerData(prev => [...prev, createdCustomer]);
+        setAllPosseOwnerOptions(prev => [...prev, newOption]);
+
+        if (newCustomerType === 'legal') {
+          selectLegalOwner(newOption);
+        } else {
+          selectPosseOwner(newOption);
+        }
+      } else {
+        const errorData = await response.text();
+        console.error('Erro detalhado:', response.status, errorData);
+        alert(`Erro ao cadastrar cliente: ${response.status} - ${errorData}`);
+      }
+    } catch (error) {
+      console.error('Erro ao cadastrar cliente:', error);
+      alert('Erro inesperado ao cadastrar cliente');
+    }
+  };
+
+  const loadAllEvaluations = async () => {
+    if (!id) return;
+    
+    try {
+      const userData = localStorage.getItem('user_data');
+      const accessToken = localStorage.getItem('supabase_access_token');
+      
+      if (!userData || !accessToken) return;
+      
+      const user = JSON.parse(userData);
+      const appointmentId = id.toString();
+
+      const response = await fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/vehicle_evaluations?appointment_id=eq.${appointmentId}&company_id=eq.${user.company_id}&order=created_at.desc`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
@@ -585,33 +1055,74 @@ export default function Appointment() {
         }
       });
 
-      if (vehicleResponse.ok) {
-        const vehicleData = await vehicleResponse.json();
-        if (vehicleData.length > 0) {
-          const vehicle = vehicleData[0];
-          setExistingVehicleEvaluationId(vehicle.id);
+      if (response.ok) {
+        const evaluationsData = await response.json();
+        
+        const legalOwnerResponse = await fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/legal_owners?appointment_id=eq.${appointmentId}&company_id=eq.${user.company_id}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        let legalOwnerName = '';
+        if (legalOwnerResponse.ok) {
+          const legalOwnerData = await legalOwnerResponse.json();
+          if (legalOwnerData.length > 0) {
+            legalOwnerName = legalOwnerData[0].name || '';
+          }
+        }
+        
+        const evaluationsWithCosts = await Promise.all(evaluationsData.map(async (evaluationItem: any) => {
+          const repairResponse = await fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/repair_estimates?appointment_id=eq.${appointmentId}&company_id=eq.${user.company_id}`, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          let totalCost = 0;
+          if (repairResponse.ok) {
+            const repairs = await repairResponse.json();
+            totalCost = repairs.reduce((sum: number, repair: any) => sum + (repair.value || 0), 0);
+          }
+          
+          return {
+            ...evaluationItem,
+            customer_name: legalOwnerName || evaluationItem.customer_name || '-',
+            expenses: totalCost,
+            cost_estimate: evaluationItem.cost_estimate || totalCost
+          };
+        }));
+        
+        setEvaluations(evaluationsWithCosts);
+        
+        if (evaluationsWithCosts.length > 0 && !existingVehicleEvaluationId) {
+          const firstEval = evaluationsWithCosts[0];
+          setExistingVehicleEvaluationId(firstEval.id);
           setDadosVeiculo({
-            marca: vehicle.brand || '',
-            placa: vehicle.plate || '',
-            modelo: vehicle.model || '',
-            ano: vehicle.year || '',
-            cor: vehicle.color || '',
-            chassi: vehicle.chassis || '',
-            renavam: vehicle.renavam || '',
-            maisBarato: vehicle.cheapest_price ? applyCurrencyMask(vehicle.cheapest_price.toString()) : '',
-            fipe: vehicle.fipe_price ? applyCurrencyMask(vehicle.fipe_price.toString()) : '',
-            maisCaro: vehicle.expensive_price ? applyCurrencyMask(vehicle.expensive_price.toString()) : '',
-            precoMedio: vehicle.average_price ? applyCurrencyMask(vehicle.average_price.toString()) : '',
-            precoAvaliacao: vehicle.evaluation_price ? applyCurrencyMask(vehicle.evaluation_price.toString()) : '',
-            portas: vehicle.doors ? vehicle.doors.toString() : '',
-            lugares: vehicle.seats ? vehicle.seats.toString() : '',
-            valor: vehicle.value ? applyCurrencyMask(vehicle.value.toString()) : ''
+            marca: firstEval.brand || '',
+            placa: firstEval.plate || '',
+            modelo: firstEval.model || '',
+            ano: firstEval.year || '',
+            cor: firstEval.color || '',
+            chassi: firstEval.chassis || '',
+            renavam: firstEval.renavam || '',
+            maisBarato: firstEval.cheapest_price ? applyCurrencyMask(firstEval.cheapest_price.toString()) : '',
+            fipe: firstEval.fipe_price ? applyCurrencyMask(firstEval.fipe_price.toString()) : '',
+            maisCaro: firstEval.expensive_price ? applyCurrencyMask(firstEval.expensive_price.toString()) : '',
+            precoMedio: firstEval.average_price ? applyCurrencyMask(firstEval.average_price.toString()) : '',
+            precoAvaliacao: firstEval.evaluation_price ? applyCurrencyMask(firstEval.evaluation_price.toString()) : '',
+            portas: firstEval.doors ? firstEval.doors.toString() : '',
+            lugares: firstEval.seats ? firstEval.seats.toString() : '',
+            valor: firstEval.value ? applyCurrencyMask(firstEval.value.toString()) : ''
           });
         }
       }
-
     } catch (error) {
-      console.error('Erro ao carregar dados da avaliação:', error);
+      console.error('Erro ao carregar avaliações:', error);
     }
   };
 
@@ -1488,21 +1999,22 @@ export default function Appointment() {
     }
   };
 
-  const salvarProprietarioLegal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!id) return;
+  const salvarProprietarioLegalInterno = async (): Promise<boolean> => {
+    if (!id) return false;
 
-    setIsSaving(true);
     try {
       const userData = localStorage.getItem('user_data');
       const accessToken = localStorage.getItem('supabase_access_token');
       
       if (!userData || !accessToken) {
-        alert('Erro de autenticação');
-        return;
+        return false;
       }
       
       const user = JSON.parse(userData);
+
+      if (!proprietarioLegal.nome) {
+        return true;
+      }
 
       const documento = proprietarioLegal.tipoDocumento === 'CNPJ' 
         ? removeCnpjMask(proprietarioLegal.cnpj)
@@ -1529,16 +2041,11 @@ export default function Appointment() {
         uf: proprietarioLegal.uf
       };
 
-      console.log('Dados sendo enviados:', dataToSend);
-
-      // Determinar se é INSERT ou UPDATE
       const isUpdate = existingLegalOwnerId !== null;
       const url = isUpdate 
         ? `https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/legal_owners?id=eq.${existingLegalOwnerId}`
         : 'https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/legal_owners';
       const method = isUpdate ? 'PATCH' : 'POST';
-
-      console.log(`${isUpdate ? 'UPDATE' : 'INSERT'} - Proprietário Legal`);
 
       const response = await fetch(url, {
         method: method,
@@ -1550,14 +2057,25 @@ export default function Appointment() {
         body: JSON.stringify(dataToSend)
       });
 
-      if (response.ok) {
+      return response.ok;
+    } catch (error) {
+      console.error('Erro ao salvar proprietário legal:', error);
+      return false;
+    }
+  };
+
+  const salvarProprietarioLegal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+
+    setIsSaving(true);
+    try {
+      const success = await salvarProprietarioLegalInterno();
+      if (success) {
         alert('Proprietário legal salvo com sucesso!');
-        // Recarregar dados da avaliação
         loadEvaluationData();
       } else {
-        const errorData = await response.text();
-        console.error('Erro detalhado:', response.status, errorData);
-        alert(`Erro ao salvar proprietário legal: ${response.status} - ${errorData}`);
+        alert('Erro ao salvar proprietário legal');
       }
     } catch (error) {
       console.error('Erro ao salvar proprietário legal:', error);
@@ -1567,21 +2085,22 @@ export default function Appointment() {
     }
   };
 
-  const salvarProprietarioPosse = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!id) return;
+  const salvarProprietarioPosseInterno = async (): Promise<boolean> => {
+    if (!id) return false;
 
-    setIsSaving(true);
     try {
       const userData = localStorage.getItem('user_data');
       const accessToken = localStorage.getItem('supabase_access_token');
       
       if (!userData || !accessToken) {
-        alert('Erro de autenticação');
-        return;
+        return false;
       }
       
       const user = JSON.parse(userData);
+
+      if (!proprietarioPosse.nome) {
+        return true;
+      }
 
       const documento = proprietarioPosse.tipoDocumento === 'CNPJ' 
         ? removeCnpjMask(proprietarioPosse.cnpj)
@@ -1608,16 +2127,11 @@ export default function Appointment() {
         uf: proprietarioPosse.uf
       };
 
-      console.log('Dados sendo enviados:', dataToSend);
-
-      // Determinar se é INSERT ou UPDATE
       const isUpdate = existingPosseOwnerId !== null;
       const url = isUpdate 
         ? `https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/possession_owners?id=eq.${existingPosseOwnerId}`
         : 'https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/possession_owners';
       const method = isUpdate ? 'PATCH' : 'POST';
-
-      console.log(`${isUpdate ? 'UPDATE' : 'INSERT'} - Proprietário de Posse`);
 
       const response = await fetch(url, {
         method: method,
@@ -1629,14 +2143,25 @@ export default function Appointment() {
         body: JSON.stringify(dataToSend)
       });
 
-      if (response.ok) {
+      return response.ok;
+    } catch (error) {
+      console.error('Erro ao salvar proprietário de posse:', error);
+      return false;
+    }
+  };
+
+  const salvarProprietarioPosse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+
+    setIsSaving(true);
+    try {
+      const success = await salvarProprietarioPosseInterno();
+      if (success) {
         alert('Proprietário de posse salvo com sucesso!');
-        // Recarregar dados da avaliação
         loadEvaluationData();
       } else {
-        const errorData = await response.text();
-        console.error('Erro detalhado:', response.status, errorData);
-        alert(`Erro ao salvar proprietário de posse: ${response.status} - ${errorData}`);
+        alert('Erro ao salvar proprietário de posse');
       }
     } catch (error) {
       console.error('Erro ao salvar proprietário de posse:', error);
@@ -1652,6 +2177,9 @@ export default function Appointment() {
 
     setIsSaving(true);
     try {
+      await salvarProprietarioLegalInterno();
+      await salvarProprietarioPosseInterno();
+
       const userData = localStorage.getItem('user_data');
       const accessToken = localStorage.getItem('supabase_access_token');
       
@@ -1662,14 +2190,31 @@ export default function Appointment() {
       
       const user = JSON.parse(userData);
 
+      const repairResponse = await fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/repair_estimates?appointment_id=eq.${id.toString()}&company_id=eq.${user.company_id}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      let totalCost = 0;
+      if (repairResponse.ok) {
+        const repairs = await repairResponse.json();
+        totalCost = repairs.reduce((sum: number, repair: any) => sum + (repair.value || 0), 0);
+      }
+
       const dataToSend = {
         appointment_id: id.toString(),
         company_id: user.company_id,
-        brand: dadosVeiculo.marca,
-        plate: dadosVeiculo.placa,
-        model: dadosVeiculo.modelo,
-        year: dadosVeiculo.ano,
-        color: dadosVeiculo.cor,
+        customer_name: evaluationForm.customer_name || clientData?.nomeCliente || '',
+        category: evaluationForm.category || '',
+        version: evaluationForm.version || '',
+        brand: dadosVeiculo.marca || '',
+        plate: dadosVeiculo.placa || '',
+        model: dadosVeiculo.modelo || '',
+        year: dadosVeiculo.ano ? parseInt(dadosVeiculo.ano) : null,
+        color: dadosVeiculo.cor || '',
         chassis: dadosVeiculo.chassi || null,
         renavam: dadosVeiculo.renavam || null,
         cheapest_price: dadosVeiculo.maisBarato ? parseFloat(removeCurrencyMask(dadosVeiculo.maisBarato)) : null,
@@ -1677,6 +2222,7 @@ export default function Appointment() {
         expensive_price: dadosVeiculo.maisCaro ? parseFloat(removeCurrencyMask(dadosVeiculo.maisCaro)) : null,
         average_price: dadosVeiculo.precoMedio ? parseFloat(removeCurrencyMask(dadosVeiculo.precoMedio)) : null,
         evaluation_price: dadosVeiculo.precoAvaliacao ? parseFloat(removeCurrencyMask(dadosVeiculo.precoAvaliacao)) : null,
+        expenses: totalCost,
         doors: dadosVeiculo.portas ? parseInt(dadosVeiculo.portas) : null,
         seats: dadosVeiculo.lugares ? parseInt(dadosVeiculo.lugares) : null,
         value: dadosVeiculo.valor ? parseFloat(removeCurrencyMask(dadosVeiculo.valor)) : null
@@ -1692,6 +2238,128 @@ export default function Appointment() {
       const method = isUpdate ? 'PATCH' : 'POST';
 
       console.log(`${isUpdate ? 'UPDATE' : 'INSERT'} - Dados do Veículo`);
+      console.log('Dados sendo enviados:', dataToSend);
+
+      const response = await fetch(url, {
+        method: method,
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(dataToSend)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Resposta do servidor:', result);
+        if (result && result.length > 0 && result[0].id) {
+          setExistingVehicleEvaluationId(result[0].id);
+        }
+        alert('Avaliação salva com sucesso!');
+        setIsCreatingEvaluation(false);
+        setIsEditingEvaluation(false);
+        setIsViewingEvaluation(false);
+        setSelectedEvaluation(null);
+        resetEvaluationForm();
+        setDadosVeiculo({
+          marca: "",
+          placa: "",
+          modelo: "",
+          ano: "",
+          cor: "",
+          chassi: "",
+          renavam: "",
+          maisBarato: "",
+          fipe: "",
+          maisCaro: "",
+          precoMedio: "",
+          precoAvaliacao: "",
+          portas: "",
+          lugares: "",
+          valor: ""
+        });
+        setExistingVehicleEvaluationId(null);
+        loadEvaluationData();
+        loadAllEvaluations();
+      } else {
+        const errorData = await response.text();
+        console.error('Erro detalhado:', response.status, errorData);
+        console.error('Dados que tentaram ser enviados:', dataToSend);
+        alert(`Erro ao salvar avaliação: ${response.status} - ${errorData}`);
+      }
+    } catch (error) {
+      console.error('Erro ao salvar dados do veículo:', error);
+      alert('Erro inesperado ao salvar dados do veículo');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const salvarAvaliacao = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!id) return;
+
+    setIsSaving(true);
+    try {
+      await salvarProprietarioLegalInterno();
+      await salvarProprietarioPosseInterno();
+
+      const userData = localStorage.getItem('user_data');
+      const accessToken = localStorage.getItem('supabase_access_token');
+      
+      if (!userData || !accessToken) {
+        alert('Erro de autenticação');
+        return;
+      }
+      
+      const user = JSON.parse(userData);
+
+      const repairResponse = await fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/repair_estimates?appointment_id=eq.${id.toString()}&company_id=eq.${user.company_id}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2ZmFjd2ZrYmNnbW5mdXFvcmt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwNzEzNzYsImV4cCI6MjA3NDY0NzM3Nn0.Eaxp52JjABWSioY4z4TSBHIf7Nom9AWAN9KLVAqftLE',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      let totalCost = 0;
+      if (repairResponse.ok) {
+        const repairs = await repairResponse.json();
+        totalCost = repairs.reduce((sum: number, repair: any) => sum + (repair.value || 0), 0);
+      }
+
+      const dataToSend = {
+        appointment_id: id.toString(),
+        company_id: user.company_id,
+        customer_name: evaluationForm.customer_name || clientData?.nomeCliente || '',
+        seller: evaluationForm.seller || clientData?.vendedor || '',
+        category: evaluationForm.category || '',
+        version: evaluationForm.version || '',
+        brand: evaluationForm.marca || '',
+        plate: evaluationForm.placa || '',
+        model: evaluationForm.modelo || '',
+        year: evaluationForm.ano ? parseInt(evaluationForm.ano) : null,
+        color: evaluationForm.cor || '',
+        chassis: evaluationForm.chassi || null,
+        renavam: evaluationForm.renavam || null,
+        cheapest_price: evaluationForm.maisBarato ? parseFloat(removeCurrencyMask(evaluationForm.maisBarato)) : null,
+        fipe_price: evaluationForm.fipe ? parseFloat(removeCurrencyMask(evaluationForm.fipe)) : null,
+        expensive_price: evaluationForm.maisCaro ? parseFloat(removeCurrencyMask(evaluationForm.maisCaro)) : null,
+        average_price: evaluationForm.precoMedio ? parseFloat(removeCurrencyMask(evaluationForm.precoMedio)) : null,
+        evaluation_price: evaluationForm.precoAvaliacao ? parseFloat(removeCurrencyMask(evaluationForm.precoAvaliacao)) : null,
+        expenses: totalCost,
+        doors: evaluationForm.portas ? parseInt(evaluationForm.portas) : null,
+        seats: evaluationForm.lugares ? parseInt(evaluationForm.lugares) : null,
+        value: evaluationForm.valor ? parseFloat(removeCurrencyMask(evaluationForm.valor)) : null
+      };
+
+      const isUpdate = isEditingEvaluation && selectedEvaluation;
+      const url = isUpdate 
+        ? `https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/vehicle_evaluations?id=eq.${selectedEvaluation.id}`
+        : 'https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/vehicle_evaluations';
+      const method = isUpdate ? 'PATCH' : 'POST';
 
       const response = await fetch(url, {
         method: method,
@@ -1704,20 +2372,151 @@ export default function Appointment() {
       });
 
       if (response.ok) {
-        alert('Dados do veículo salvos com sucesso!');
-        // Recarregar dados da avaliação
-        loadEvaluationData();
+        alert(`Avaliação ${isUpdate ? 'atualizada' : 'salva'} com sucesso!`);
+        setIsCreatingEvaluation(false);
+        setIsEditingEvaluation(false);
+        setIsViewingEvaluation(false);
+        setSelectedEvaluation(null);
+        resetEvaluationForm();
+        loadAllEvaluations();
       } else {
         const errorData = await response.text();
         console.error('Erro detalhado:', response.status, errorData);
-        alert(`Erro ao salvar dados do veículo: ${response.status} - ${errorData}`);
+        alert(`Erro ao salvar avaliação: ${response.status} - ${errorData}`);
       }
     } catch (error) {
-      console.error('Erro ao salvar dados do veículo:', error);
-      alert('Erro inesperado ao salvar dados do veículo');
+      console.error('Erro ao salvar avaliação:', error);
+      alert('Erro inesperado ao salvar avaliação');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const resetEvaluationForm = () => {
+    setEvaluationForm({
+      customer_name: clientData?.nomeCliente || "",
+      seller: clientData?.vendedor || "",
+      category: "",
+      version: "",
+      marca: "",
+      modelo: "",
+      ano: "",
+      cor: "",
+      placa: "",
+      chassi: "",
+      renavam: "",
+      maisBarato: "",
+      fipe: "",
+      maisCaro: "",
+      precoMedio: "",
+      precoAvaliacao: "",
+      portas: "",
+      lugares: "",
+      valor: ""
+    });
+    setLegalOwnerSearch("");
+    setPosseOwnerSearch("");
+    setSelectedLegalOwner(null);
+    setSelectedPosseOwner(null);
+    setProprietarioLegal({
+      tipoDocumento: "CPF" as "CPF" | "CNPJ",
+      cpf: "",
+      cnpj: "",
+      inscricaoEstadual: "",
+      nome: "",
+      email: "",
+      celular: "",
+      celular2: "",
+      dataNascimento: "",
+      cep: "",
+      endereco: "",
+      numero: "",
+      complemento: "",
+      bairro: "",
+      cidade: "",
+      estado: "",
+      uf: ""
+    });
+    setProprietarioPosse({
+      tipoDocumento: "CPF" as "CPF" | "CNPJ",
+      cpf: "",
+      cnpj: "",
+      inscricaoEstadual: "",
+      nome: "",
+      email: "",
+      celular: "",
+      celular2: "",
+      dataNascimento: "",
+      cep: "",
+      endereco: "",
+      numero: "",
+      complemento: "",
+      bairro: "",
+      cidade: "",
+      estado: "",
+      uf: ""
+    });
+  };
+
+  const handleNewEvaluation = () => {
+    resetEvaluationForm();
+    setIsCreatingEvaluation(true);
+    setIsViewingEvaluation(false);
+    setIsEditingEvaluation(false);
+    setSelectedEvaluation(null);
+  };
+
+  const handleViewEvaluation = (evaluation: any) => {
+    setSelectedEvaluation(evaluation);
+    setIsViewingEvaluation(true);
+    setIsCreatingEvaluation(false);
+    setIsEditingEvaluation(false);
+  };
+
+  const handleEditEvaluation = () => {
+    if (!selectedEvaluation) return;
+    setIsEditingEvaluation(true);
+    setIsViewingEvaluation(false);
+    loadEvaluationData();
+    setEvaluationForm({
+      customer_name: selectedEvaluation.customer_name || clientData?.nomeCliente || "",
+      seller: selectedEvaluation.seller || clientData?.vendedor || "",
+      category: selectedEvaluation.category || "",
+      version: selectedEvaluation.version || "",
+      marca: selectedEvaluation.brand || "",
+      modelo: selectedEvaluation.model || "",
+      ano: selectedEvaluation.year?.toString() || "",
+      cor: selectedEvaluation.color || "",
+      placa: selectedEvaluation.plate || "",
+      chassi: selectedEvaluation.chassis || "",
+      renavam: selectedEvaluation.renavam || "",
+      maisBarato: selectedEvaluation.cheapest_price ? applyCurrencyMask(selectedEvaluation.cheapest_price.toString()) : "",
+      fipe: selectedEvaluation.fipe_price ? applyCurrencyMask(selectedEvaluation.fipe_price.toString()) : "",
+      maisCaro: selectedEvaluation.expensive_price ? applyCurrencyMask(selectedEvaluation.expensive_price.toString()) : "",
+      precoMedio: selectedEvaluation.average_price ? applyCurrencyMask(selectedEvaluation.average_price.toString()) : "",
+      precoAvaliacao: selectedEvaluation.evaluation_price ? applyCurrencyMask(selectedEvaluation.evaluation_price.toString()) : "",
+      portas: selectedEvaluation.doors?.toString() || "",
+      lugares: selectedEvaluation.seats?.toString() || "",
+      valor: selectedEvaluation.value ? applyCurrencyMask(selectedEvaluation.value.toString()) : ""
+    });
+    setDadosVeiculo({
+      marca: selectedEvaluation.brand || "",
+      placa: selectedEvaluation.plate || "",
+      modelo: selectedEvaluation.model || "",
+      ano: selectedEvaluation.year?.toString() || "",
+      cor: selectedEvaluation.color || "",
+      chassi: selectedEvaluation.chassis || "",
+      renavam: selectedEvaluation.renavam || "",
+      maisBarato: selectedEvaluation.cheapest_price ? applyCurrencyMask(selectedEvaluation.cheapest_price.toString()) : "",
+      fipe: selectedEvaluation.fipe_price ? applyCurrencyMask(selectedEvaluation.fipe_price.toString()) : "",
+      maisCaro: selectedEvaluation.expensive_price ? applyCurrencyMask(selectedEvaluation.expensive_price.toString()) : "",
+      precoMedio: selectedEvaluation.average_price ? applyCurrencyMask(selectedEvaluation.average_price.toString()) : "",
+      precoAvaliacao: selectedEvaluation.evaluation_price ? applyCurrencyMask(selectedEvaluation.evaluation_price.toString()) : "",
+      portas: selectedEvaluation.doors?.toString() || "",
+      lugares: selectedEvaluation.seats?.toString() || "",
+      valor: selectedEvaluation.value ? applyCurrencyMask(selectedEvaluation.value.toString()) : ""
+    });
+    setExistingVehicleEvaluationId(selectedEvaluation.id);
   };
 
   const gerarPDFContrato = async () => {
@@ -2551,10 +3350,6 @@ export default function Appointment() {
                       Vendas e Compras
                     </h4>
                     <div>
-                      <label className="block text-sm font-medium text-gray-500">Vendedor</label>
-                      <p className="mt-1 text-sm text-gray-900">{clientData?.vendedor}</p>
-                    </div>
-                    <div>
                       <label className="block text-sm font-medium text-gray-500">Tipo</label>
                       <p className="mt-1 text-sm text-gray-900">{clientData?.tipo}</p>
                     </div>
@@ -2687,17 +3482,6 @@ export default function Appointment() {
                             <option key={method} value={method}>{method}</option>
                           ))}
                         </Select>
-                        <Select
-                          label="Vendedor"
-                          name="vendedor"
-                          value={contactForm.vendedor}
-                          onChange={handleContactFormChange}
-                        >
-                          <option value="">Selecione</option>
-                          {users.map((user) => (
-                            <option key={user.id} value={user.name}>{user.name}</option>
-                          ))}
-                        </Select>
                       </div>
                       
                       <Textarea
@@ -2773,9 +3557,6 @@ export default function Appointment() {
                               </span>
                             </div>
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {contact.vendedor || '-'}
-                          </div>
                         </div>
                         
                         {contact.observacoes && (
@@ -2808,14 +3589,323 @@ export default function Appointment() {
         );
 
       case "avaliacao":
+        if (isViewingEvaluation && selectedEvaluation) {
         return (
           <div className="space-y-8">
-            {/* Fotos de documentos */}
             <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">
+                    Visualização de Avaliação
+                  </h3>
+                  <div className="flex space-x-4">
+                    <button
+                      onClick={() => {
+                        setIsViewingEvaluation(false);
+                        setSelectedEvaluation(null);
+                      }}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      onClick={handleEditEvaluation}
+                      className="px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors"
+                    >
+                      Editar
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-900 mb-4">Informações Básicas</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Cliente</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.customer_name || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Categoria</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.category || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Versão</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.version || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-900 mb-4">Dados do Veículo</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Marca</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.brand || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Modelo</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.model || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Ano</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.year || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Cor</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.color || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Placa</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.plate || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Chassi</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.chassis || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">RENAVAM</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.renavam || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Portas</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.doors || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Lugares</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedEvaluation.seats || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-900 mb-4">Valores</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Mais Barato</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedEvaluation.cheapest_price ? formatCurrency(selectedEvaluation.cheapest_price, { showSymbol: true }) : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">FIPE</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedEvaluation.fipe_price ? formatCurrency(selectedEvaluation.fipe_price, { showSymbol: true }) : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Mais Caro</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedEvaluation.expensive_price ? formatCurrency(selectedEvaluation.expensive_price, { showSymbol: true }) : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Preço Médio</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedEvaluation.average_price ? formatCurrency(selectedEvaluation.average_price, { showSymbol: true }) : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Valor Avaliado</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedEvaluation.evaluation_price ? formatCurrency(selectedEvaluation.evaluation_price, { showSymbol: true }) : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Valor</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedEvaluation.value ? formatCurrency(selectedEvaluation.value, { showSymbol: true }) : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Despesa</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedEvaluation.expenses ? formatCurrency(selectedEvaluation.expenses, { showSymbol: true }) : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Previsão Custo</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {selectedEvaluation.cost_estimate ? formatCurrency(selectedEvaluation.cost_estimate, { showSymbol: true }) : '-'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   Fotos de documentos
                 </h3>
+                <AttachmentList
+                  attachments={documentosAnexos}
+                  onView={(attachment) => {
+                    if (attachment.url) {
+                      window.open(attachment.url, '_blank');
+                    }
+                  }}
+                  onDownload={(attachment) => {
+                    if (attachment.url) {
+                      const link = document.createElement('a');
+                      link.href = attachment.url;
+                      link.download = attachment.nome;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }
+                  }}
+                  onDelete={(attachment) => {
+                    handleDeleteAttachment(attachment, 'documentos');
+                  }}
+                  emptyMessage="Nenhum anexo de documento encontrado"
+                />
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Fotos da avaliação
+                </h3>
+                <AttachmentList
+                  attachments={avaliacaoAnexos}
+                  onView={(attachment) => {
+                    if (attachment.url) {
+                      window.open(attachment.url, '_blank');
+                    }
+                  }}
+                  onDownload={(attachment) => {
+                    if (attachment.url) {
+                      const link = document.createElement('a');
+                      link.href = attachment.url;
+                      link.download = attachment.nome;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }
+                  }}
+                  onDelete={(attachment) => {
+                    handleDeleteAttachment(attachment, 'avaliacao');
+                  }}
+                  emptyMessage="Nenhum anexo de avaliação encontrado"
+                />
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Fotos do anúncio
+                </h3>
+                <AttachmentList
+                  attachments={anuncioAnexos}
+                  onView={(attachment) => {
+                    if (attachment.url) {
+                      window.open(attachment.url, '_blank');
+                    }
+                  }}
+                  onDownload={(attachment) => {
+                    if (attachment.url) {
+                      const link = document.createElement('a');
+                      link.href = attachment.url;
+                      link.download = attachment.nome;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }
+                  }}
+                  onDelete={(attachment) => {
+                    handleDeleteAttachment(attachment, 'anuncio');
+                  }}
+                  emptyMessage="Nenhum anexo de anúncio encontrado"
+                />
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">
+                  Previsão de Reparo
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data de Criação</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Previsão</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fornecedor</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {previsoesReparo.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                            Nenhuma previsão de reparo encontrada
+                          </td>
+                        </tr>
+                      ) : (
+                        previsoesReparo.map((previsao, index) => (
+                          <tr key={previsao.id || index}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {previsao.descricao}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {previsao.created_at ? new Date(previsao.created_at).toLocaleDateString('pt-BR') : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {previsao.data}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {previsao.fornecedor}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {previsao.valor}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex justify-between items-center mt-4">
+                  <div></div>
+                  <div className="text-right">
+                    <span className="text-sm font-medium text-gray-900">
+                      Total: R$ {previsoesReparo.reduce((total, previsao) => {
+                        const valor = previsao.valorNumerico || 0;
+                        return total + valor;
+                      }, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        if (isCreatingEvaluation || isEditingEvaluation) {
+          return (
+            <div className="space-y-8">
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {isEditingEvaluation ? 'Editar Avaliação' : 'Nova Avaliação'}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setIsCreatingEvaluation(false);
+                      setIsEditingEvaluation(false);
+                      setSelectedEvaluation(null);
+                      resetEvaluationForm();
+                    }}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Fotos de documentos
+                </h3>
+                <div className="mb-4">
                 <FileUpload
                   onFileSelect={(files) => handleFileUpload(files, 'documentos')}
                   accept="image/*,.pdf,.doc,.docx"
@@ -2853,7 +3943,6 @@ export default function Appointment() {
               />
             </div>
 
-            {/* Fotos da avaliação */}
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -2911,7 +4000,6 @@ export default function Appointment() {
               />
             </div>
 
-            {/* Fotos do anúncio */}
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -2954,13 +4042,11 @@ export default function Appointment() {
               />
             </div>
 
-            {/* Previsão de Reparo */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">
                 Previsão de Reparo
               </h3>
               
-              {/* Tabela de previsões */}
               <div className="mb-6">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
@@ -2971,12 +4057,13 @@ export default function Appointment() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Previsão</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fornecedor</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {previsoesReparo.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                            <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                             Nenhuma previsão de reparo encontrada
                           </td>
                         </tr>
@@ -2998,6 +4085,20 @@ export default function Appointment() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {previsao.valor}
                             </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button
+                                  onClick={() => editarPrevisao(previsao)}
+                                  className="text-primary hover:text-primary-dark mr-3"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => excluirPrevisao(previsao.id)}
+                                  className="text-red-600 hover:text-red-900"
+                                >
+                                  Excluir
+                                </button>
+                            </td>
                           </tr>
                         ))
                       )}
@@ -3018,7 +4119,6 @@ export default function Appointment() {
                 </div>
               </div>
 
-              {/* Formulário para registrar previsão */}
               <div className="border-t pt-6">
                 <h4 className="text-md font-medium text-gray-900 mb-4">
                   Registrar Previsão de Reparo
@@ -3100,456 +4200,158 @@ export default function Appointment() {
               </div>
             </div>
 
-            {/* Proprietário Legal */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">
                 Proprietário Legal
               </h3>
               
-              <form onSubmit={salvarProprietarioLegal} className="space-y-4">
-                {/* Primeira linha */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Input
-                    label="Nome / Razão Social"
+                <div className="space-y-4">
+                  <div className="relative legal-owner-search-container">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <AutocompleteInput
+                          label="Nome ou CPF"
                     type="text"
-                    name="nome"
-                    placeholder="Nome ou Razão Social"
-                    value={proprietarioLegal.nome}
-                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, nome: e.target.value }))}
-                    required
-                  />
-                  <Select
-                    label="Tipo de Documento"
-                    name="tipoDocumento"
-                    value={proprietarioLegal.tipoDocumento}
+                          name="legalOwnerSearch"
+                          placeholder="Digite o nome ou CPF do cliente"
+                          value={legalOwnerSearch}
                     onChange={(e) => {
-                      const tipo = e.target.value as "CPF" | "CNPJ";
-                      setProprietarioLegal(prev => ({ 
-                        ...prev, 
-                        tipoDocumento: tipo,
-                        cpf: tipo === 'CPF' ? prev.cpf : '',
-                        cnpj: tipo === 'CNPJ' ? prev.cnpj : '',
-                        inscricaoEstadual: tipo === 'CPF' ? '' : prev.inscricaoEstadual
-                      }));
-                    }}
-                    required
-                  >
-                    <option value="CPF">CPF</option>
-                    <option value="CNPJ">CNPJ</option>
-                  </Select>
-                  {proprietarioLegal.tipoDocumento === 'CPF' ? (
-                    <Input
-                      label="CPF"
-                      type="text"
-                      name="cpf"
-                      placeholder="000.000.000-00"
-                      value={proprietarioLegal.cpf}
-                      onChange={(e) => {
-                        const maskedValue = applyCpfMask(e.target.value);
-                        setProprietarioLegal(prev => ({ ...prev, cpf: maskedValue }));
-                      }}
-                      required
-                    />
-                  ) : (
-                    <>
-                      <Input
-                        label="CNPJ"
-                        type="text"
-                        name="cnpj"
-                        placeholder="00.000.000/0000-00"
-                        value={proprietarioLegal.cnpj}
-                        onChange={(e) => {
-                          const maskedValue = applyCnpjMask(e.target.value);
-                          setProprietarioLegal(prev => ({ ...prev, cnpj: maskedValue }));
-                        }}
-                        required
-                      />
-                    </>
-                  )}
+                            const value = e.target.value;
+                            setLegalOwnerSearch(value);
+                          }}
+                          options={allLegalOwnerOptions}
+                          onOptionSelect={selectLegalOwner}
+                        />
+                      </div>
+                      <div className="flex items-end pb-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewCustomerType('legal');
+                            setShowNewCustomerModal(true);
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Novo Cliente
+                        </button>
                 </div>
-                
-                {proprietarioLegal.tipoDocumento === 'CNPJ' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Input
-                      label="Inscrição Estadual"
-                      type="text"
-                      name="inscricaoEstadual"
-                      placeholder="Inscrição Estadual (opcional)"
-                      value={proprietarioLegal.inscricaoEstadual}
-                      onChange={(e) => setProprietarioLegal(prev => ({ ...prev, inscricaoEstadual: e.target.value }))}
-                    />
                   </div>
-                )}
+                </div>
 
+                  {selectedLegalOwner && (
+                    <div className="p-4 bg-gray-50 rounded-lg">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Input
-                    label="E-Mail"
-                    type="email"
-                    name="email"
-                    placeholder="E-Mail"
-                    value={proprietarioLegal.email}
-                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, email: e.target.value }))}
-                    required
-                  />
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Nome</label>
+                          <p className="mt-1 text-sm text-gray-900">{proprietarioLegal.nome || '-'}</p>
                 </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Documento</label>
+                          <p className="mt-1 text-sm text-gray-900">
+                            {proprietarioLegal.tipoDocumento === 'CPF' ? proprietarioLegal.cpf : proprietarioLegal.cnpj || '-'}
+                          </p>
+                </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">E-Mail</label>
+                          <p className="mt-1 text-sm text-gray-900">{proprietarioLegal.email || '-'}</p>
+                </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Celular</label>
+                          <p className="mt-1 text-sm text-gray-900">{proprietarioLegal.celular || '-'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Endereço</label>
+                          <p className="mt-1 text-sm text-gray-900">{proprietarioLegal.endereco || '-'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Cidade</label>
+                          <p className="mt-1 text-sm text-gray-900">{proprietarioLegal.cidade || '-'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                {/* Segunda linha */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Input
-                    label="Celular"
-                    type="tel"
-                    name="celular"
-                    placeholder="(00) 00000-0000"
-                    value={proprietarioLegal.celular}
-                    onChange={(e) => {
-                      const maskedValue = applyPhoneMask(e.target.value);
-                      setProprietarioLegal(prev => ({ ...prev, celular: maskedValue }));
-                    }}
-                    required
-                  />
-                  <Input
-                    label="Celular 2"
-                    type="tel"
-                    name="celular2"
-                    placeholder="(00) 00000-0000"
-                    value={proprietarioLegal.celular2}
-                    onChange={(e) => {
-                      const maskedValue = applyPhoneMask(e.target.value);
-                      setProprietarioLegal(prev => ({ ...prev, celular2: maskedValue }));
-                    }}
-                  />
-                  <Input
-                    label="Data de Nascimento"
-                    type="date"
-                    name="dataNascimento"
-                    placeholder="Data de Nascimento"
-                    value={proprietarioLegal.dataNascimento}
-                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, dataNascimento: e.target.value }))}
-                    required={proprietarioLegal.tipoDocumento === 'CPF'}
-                  />
                 </div>
-
-                {/* Terceira linha - Endereço completo */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Input
-                    label="CEP"
-                    type="text"
-                    name="cep"
-                    placeholder="00000-000"
-                    value={proprietarioLegal.cep}
-                    onChange={(e) => {
-                      const maskedValue = applyCepMask(e.target.value);
-                      setProprietarioLegal(prev => ({ ...prev, cep: maskedValue }));
-                    }}
-                    required
-                  />
-                  <Input
-                    label="Endereço"
-                    type="text"
-                    name="endereco"
-                    placeholder="Rua, Avenida, etc."
-                    value={proprietarioLegal.endereco}
-                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, endereco: e.target.value }))}
-                    required
-                  />
-                  <Input
-                    label="Número"
-                    type="text"
-                    name="numero"
-                    placeholder="Número"
-                    value={proprietarioLegal.numero}
-                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, numero: e.target.value }))}
-                    required
-                  />
-                  <Input
-                    label="Complemento"
-                    type="text"
-                    name="complemento"
-                    placeholder="Apto, Bloco, etc. (opcional)"
-                    value={proprietarioLegal.complemento}
-                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, complemento: e.target.value }))}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Input
-                    label="Bairro"
-                    type="text"
-                    name="bairro"
-                    placeholder="Bairro"
-                    value={proprietarioLegal.bairro}
-                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, bairro: e.target.value }))}
-                    required
-                  />
-                  <Input
-                    label="Cidade"
-                    type="text"
-                    name="cidade"
-                    placeholder="Cidade"
-                    value={proprietarioLegal.cidade}
-                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, cidade: e.target.value }))}
-                    required
-                  />
-                  <Input
-                    label="Estado"
-                    type="text"
-                    name="estado"
-                    placeholder="Estado"
-                    value={proprietarioLegal.estado}
-                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, estado: e.target.value }))}
-                    required
-                  />
-                  <Input
-                    label="UF"
-                    type="text"
-                    name="uf"
-                    placeholder="UF"
-                    value={proprietarioLegal.uf}
-                    onChange={(e) => setProprietarioLegal(prev => ({ ...prev, uf: e.target.value }))}
-                    maxLength={2}
-                    required
-                  />
-                </div>
-
-                {/* Botão de ação */}
-                <div className="flex justify-end pt-4">
-                  <button
-                    type="submit"
-                    disabled={isSaving}
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSaving ? 'Salvando...' : 'Salvar'}
-                  </button>
-                </div>
-              </form>
             </div>
 
-            {/* Proprietário de Posse */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">
                 Proprietário de Posse
               </h3>
               
-              <form onSubmit={salvarProprietarioPosse} className="space-y-4">
-                {/* Primeira linha */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Input
-                    label="Nome / Razão Social"
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <AutocompleteInput
+                        label="Nome ou CPF"
                     type="text"
-                    name="nome"
-                    placeholder="Nome ou Razão Social"
-                    value={proprietarioPosse.nome}
-                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, nome: e.target.value }))}
-                    required
-                  />
-                  <Select
-                    label="Tipo de Documento"
-                    name="tipoDocumento"
-                    value={proprietarioPosse.tipoDocumento}
+                        name="posseOwnerSearch"
+                        placeholder="Digite o nome ou CPF do cliente"
+                        value={posseOwnerSearch}
                     onChange={(e) => {
-                      const tipo = e.target.value as "CPF" | "CNPJ";
-                      setProprietarioPosse(prev => ({ 
-                        ...prev, 
-                        tipoDocumento: tipo,
-                        cpf: tipo === 'CPF' ? prev.cpf : '',
-                        cnpj: tipo === 'CNPJ' ? prev.cnpj : '',
-                        inscricaoEstadual: tipo === 'CPF' ? '' : prev.inscricaoEstadual
-                      }));
-                    }}
-                    required
-                  >
-                    <option value="CPF">CPF</option>
-                    <option value="CNPJ">CNPJ</option>
-                  </Select>
-                  {proprietarioPosse.tipoDocumento === 'CPF' ? (
-                    <Input
-                      label="CPF"
-                      type="text"
-                      name="cpf"
-                      placeholder="000.000.000-00"
-                      value={proprietarioPosse.cpf}
-                      onChange={(e) => {
-                        const maskedValue = applyCpfMask(e.target.value);
-                        setProprietarioPosse(prev => ({ ...prev, cpf: maskedValue }));
-                      }}
-                      required
-                    />
-                  ) : (
-                    <Input
-                      label="CNPJ"
-                      type="text"
-                      name="cnpj"
-                      placeholder="00.000.000/0000-00"
-                      value={proprietarioPosse.cnpj}
-                      onChange={(e) => {
-                        const maskedValue = applyCnpjMask(e.target.value);
-                        setProprietarioPosse(prev => ({ ...prev, cnpj: maskedValue }));
-                      }}
-                      required
-                    />
-                  )}
+                          const value = e.target.value;
+                          setPosseOwnerSearch(value);
+                        }}
+                        options={allPosseOwnerOptions}
+                        onOptionSelect={selectPosseOwner}
+                      />
+                    </div>
+                    <div className="flex items-end pb-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewCustomerType('posse');
+                          setShowNewCustomerModal(true);
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Novo Cliente
+                      </button>
                 </div>
-                
-                {proprietarioPosse.tipoDocumento === 'CNPJ' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Input
-                      label="Inscrição Estadual"
-                      type="text"
-                      name="inscricaoEstadual"
-                      placeholder="Inscrição Estadual (opcional)"
-                      value={proprietarioPosse.inscricaoEstadual}
-                      onChange={(e) => setProprietarioPosse(prev => ({ ...prev, inscricaoEstadual: e.target.value }))}
-                    />
                   </div>
-                )}
 
+                  {selectedPosseOwner && (
+                    <div className="p-4 bg-gray-50 rounded-lg">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Input
-                    label="E-Mail"
-                    type="email"
-                    name="email"
-                    placeholder="E-mail do proprietário de posse"
-                    value={proprietarioPosse.email}
-                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, email: e.target.value }))}
-                    required
-                  />
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Nome</label>
+                          <p className="mt-1 text-sm text-gray-900">{proprietarioPosse.nome || '-'}</p>
                 </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Documento</label>
+                          <p className="mt-1 text-sm text-gray-900">
+                            {proprietarioPosse.tipoDocumento === 'CPF' ? proprietarioPosse.cpf : proprietarioPosse.cnpj || '-'}
+                          </p>
+                </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">E-Mail</label>
+                          <p className="mt-1 text-sm text-gray-900">{proprietarioPosse.email || '-'}</p>
+                </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Celular</label>
+                          <p className="mt-1 text-sm text-gray-900">{proprietarioPosse.celular || '-'}</p>
+                </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Endereço</label>
+                          <p className="mt-1 text-sm text-gray-900">{proprietarioPosse.endereco || '-'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500">Cidade</label>
+                          <p className="mt-1 text-sm text-gray-900">{proprietarioPosse.cidade || '-'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                {/* Segunda linha */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Input
-                    label="Celular"
-                    type="tel"
-                    name="celular"
-                    value={proprietarioPosse.celular}
-                    readOnly
-                    className="bg-gray-100"
-                  />
-                  <Input
-                    label="Celular 2"
-                    type="tel"
-                    name="celular2"
-                    placeholder="(00) 00000-0000"
-                    value={proprietarioPosse.celular2}
-                    onChange={(e) => {
-                      const maskedValue = applyPhoneMask(e.target.value);
-                      setProprietarioPosse(prev => ({ ...prev, celular2: maskedValue }));
-                    }}
-                  />
-                  <Input
-                    label="Data de Nascimento"
-                    type="date"
-                    name="dataNascimento"
-                    placeholder="Data de Nascimento"
-                    value={proprietarioPosse.dataNascimento}
-                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, dataNascimento: e.target.value }))}
-                    required={proprietarioPosse.tipoDocumento === 'CPF'}
-                  />
                 </div>
-
-                {/* Terceira linha - Endereço completo */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Input
-                    label="CEP"
-                    type="text"
-                    name="cep"
-                    placeholder="00000-000"
-                    value={proprietarioPosse.cep}
-                    onChange={(e) => {
-                      const maskedValue = applyCepMask(e.target.value);
-                      setProprietarioPosse(prev => ({ ...prev, cep: maskedValue }));
-                    }}
-                    required
-                  />
-                  <Input
-                    label="Endereço"
-                    type="text"
-                    name="endereco"
-                    placeholder="Rua, Avenida, etc."
-                    value={proprietarioPosse.endereco}
-                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, endereco: e.target.value }))}
-                    required
-                  />
-                  <Input
-                    label="Número"
-                    type="text"
-                    name="numero"
-                    placeholder="Número"
-                    value={proprietarioPosse.numero}
-                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, numero: e.target.value }))}
-                    required
-                  />
-                  <Input
-                    label="Complemento"
-                    type="text"
-                    name="complemento"
-                    placeholder="Apto, Bloco, etc. (opcional)"
-                    value={proprietarioPosse.complemento}
-                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, complemento: e.target.value }))}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Input
-                    label="Bairro"
-                    type="text"
-                    name="bairro"
-                    placeholder="Bairro"
-                    value={proprietarioPosse.bairro}
-                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, bairro: e.target.value }))}
-                    required
-                  />
-                  <Input
-                    label="Cidade"
-                    type="text"
-                    name="cidade"
-                    placeholder="Cidade"
-                    value={proprietarioPosse.cidade}
-                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, cidade: e.target.value }))}
-                    required
-                  />
-                  <Input
-                    label="Estado"
-                    type="text"
-                    name="estado"
-                    placeholder="Estado"
-                    value={proprietarioPosse.estado}
-                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, estado: e.target.value }))}
-                    required
-                  />
-                  <Input
-                    label="UF"
-                    type="text"
-                    name="uf"
-                    placeholder="UF"
-                    value={proprietarioPosse.uf}
-                    onChange={(e) => setProprietarioPosse(prev => ({ ...prev, uf: e.target.value }))}
-                    maxLength={2}
-                    required
-                  />
-                </div>
-
-                {/* Botão de ação */}
-                <div className="flex justify-end pt-4">
-                  <button
-                    type="submit"
-                    disabled={isSaving}
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSaving ? 'Salvando...' : 'Salvar'}
-                  </button>
-                </div>
-              </form>
             </div>
 
-            {/* Formulário de dados do veículo */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">
                 Dados do Veículo
               </h3>
               
               <form onSubmit={salvarDadosVeiculo} className="space-y-6">
-                {/* Primeira linha */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                   <Input
                     label="Marca"
@@ -3635,7 +4437,6 @@ export default function Appointment() {
                   />
                 </div>
 
-                {/* Segunda linha */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Input
                     label="FIPE"
@@ -3683,7 +4484,6 @@ export default function Appointment() {
                   />
                 </div>
 
-                {/* Terceira linha */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Input
                     label="Portas"
@@ -3715,8 +4515,20 @@ export default function Appointment() {
                   />
                 </div>
 
-                {/* Botões de ação */}
-                <div className="flex justify-end space-x-4 pt-6 border-t">
+                  <div className="flex justify-between space-x-4 pt-6 border-t">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCreatingEvaluation(false);
+                        setIsEditingEvaluation(false);
+                        setSelectedEvaluation(null);
+                        resetEvaluationForm();
+                      }}
+                      className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <div className="flex space-x-4">
                   <button
                     type="button"
                     className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
@@ -3730,8 +4542,75 @@ export default function Appointment() {
                   >
                     {isSaving ? 'Salvando...' : 'Salvar avaliação'}
                   </button>
+                    </div>
                 </div>
               </form>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="space-y-8">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Avaliações
+                </h3>
+                <button
+                  onClick={handleNewEvaluation}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors"
+                >
+                  Nova avaliação
+                </button>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cor</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ano</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor Avaliado</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Despesa</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Previsão Custo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {evaluations.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                          Nenhuma avaliação encontrada
+                        </td>
+                      </tr>
+                    ) : (
+                      evaluations.map((evaluation, index) => (
+                        <tr
+                          key={evaluation.id}
+                          onDoubleClick={() => handleViewEvaluation(evaluation)}
+                          className="cursor-pointer hover:bg-gray-50"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{evaluation.customer_name || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{evaluation.color || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{evaluation.year || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {evaluation.evaluation_price ? formatCurrency(evaluation.evaluation_price, { showSymbol: true }) : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {evaluation.expenses ? formatCurrency(evaluation.expenses, { showSymbol: true }) : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {evaluation.cost_estimate ? formatCurrency(evaluation.cost_estimate, { showSymbol: true }) : '-'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         );
@@ -4295,7 +5174,7 @@ export default function Appointment() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           <p className="text-sm font-medium">Arquivo selecionado:</p>
-                          <p className="text-sm text-gray-600">{formalizationDelivery.termoAssinado.name}</p>
+                          <p className="text-sm text-gray-600">{formalizationDelivery.termoAssinado?.name || ''}</p>
                           <p className="text-xs text-gray-500 mt-1">Clique para alterar</p>
                         </div>
                       ) : (
@@ -4443,6 +5322,155 @@ export default function Appointment() {
           </div>
         </div>
       </div>
+
+      <ResponsiveModal
+        isOpen={showNewCustomerModal}
+        onClose={() => {
+          setShowNewCustomerModal(false);
+          setNewCustomerForm({
+            name: "",
+            document: "",
+            email: "",
+            phone: "",
+            address: "",
+            city: "",
+            state: "",
+            zip_code: ""
+          });
+        }}
+        title="Novo Cliente"
+        size="lg"
+      >
+        <form onSubmit={saveNewCustomer} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Nome / Razão Social"
+              type="text"
+              name="name"
+              placeholder="Nome ou Razão Social"
+              value={newCustomerForm.name}
+              onChange={(e) => setNewCustomerForm(prev => ({ ...prev, name: e.target.value }))}
+              required
+            />
+            <Input
+              label="CPF/CNPJ"
+              type="text"
+              name="document"
+              placeholder="000.000.000-00 ou 00.000.000/0000-00"
+              value={newCustomerForm.document}
+              onChange={(e) => {
+                const value = e.target.value;
+                const cleanValue = value.replace(/\D/g, '');
+                let maskedValue = '';
+                
+                if (cleanValue.length <= 11) {
+                  maskedValue = applyCpfMask(value);
+                } else {
+                  maskedValue = applyCnpjMask(value);
+                }
+                
+                setNewCustomerForm(prev => ({ ...prev, document: maskedValue }));
+              }}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="E-Mail"
+              type="email"
+              name="email"
+              placeholder="E-Mail"
+              value={newCustomerForm.email}
+              onChange={(e) => setNewCustomerForm(prev => ({ ...prev, email: e.target.value }))}
+            />
+            <Input
+              label="Telefone"
+              type="tel"
+              name="phone"
+              placeholder="(00) 00000-0000"
+              value={newCustomerForm.phone}
+              onChange={(e) => {
+                const maskedValue = applyPhoneMask(e.target.value);
+                setNewCustomerForm(prev => ({ ...prev, phone: maskedValue }));
+              }}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Input
+              label="CEP"
+              type="text"
+              name="zip_code"
+              placeholder="00000-000"
+              value={newCustomerForm.zip_code}
+              onChange={(e) => {
+                const maskedValue = applyCepMask(e.target.value);
+                setNewCustomerForm(prev => ({ ...prev, zip_code: maskedValue }));
+              }}
+            />
+            <Input
+              label="Cidade"
+              type="text"
+              name="city"
+              placeholder="Cidade"
+              value={newCustomerForm.city}
+              onChange={(e) => setNewCustomerForm(prev => ({ ...prev, city: e.target.value }))}
+            />
+            <Input
+              label="UF"
+              type="text"
+              name="state"
+              placeholder="UF"
+              value={newCustomerForm.state}
+              onChange={(e) => {
+                const value = e.target.value.toUpperCase().substring(0, 2);
+                setNewCustomerForm(prev => ({ ...prev, state: value }));
+              }}
+              maxLength={2}
+            />
+          </div>
+
+          <div>
+            <Input
+              label="Endereço"
+              type="text"
+              name="address"
+              placeholder="Rua, Avenida, etc."
+              value={newCustomerForm.address}
+              onChange={(e) => setNewCustomerForm(prev => ({ ...prev, address: e.target.value }))}
+            />
+          </div>
+
+          <ResponsiveModalActions>
+            <button
+              type="button"
+              onClick={() => {
+                setShowNewCustomerModal(false);
+                setNewCustomerForm({
+                  name: "",
+                  document: "",
+                  email: "",
+                  phone: "",
+                  address: "",
+                  city: "",
+                  state: "",
+                  zip_code: ""
+                });
+              }}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Salvar Cliente
+            </button>
+          </ResponsiveModalActions>
+        </form>
+      </ResponsiveModal>
     </main>
   );
 }
