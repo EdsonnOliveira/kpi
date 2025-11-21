@@ -758,9 +758,11 @@ export default function AttendanceForm() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dt. Atend.</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dt. 1º Atend.</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Agendamento</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modelo Interesse</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ano</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trade In</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mídia</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendedor</th>
@@ -777,9 +779,11 @@ export default function AttendanceForm() {
                     }`}
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(item.appointment_date)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.created_at ? formatDate(item.created_at) : '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.appointment_date ? formatDate(item.appointment_date) : '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.customer_name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.brand} {item.model}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.year || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.queue_brand ? 'Sim' : 'Não'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.attraction_media}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.seller}</td>

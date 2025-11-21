@@ -82,7 +82,23 @@ export default function Appointment() {
   // Estados para opções dinâmicas
   const [users, setUsers] = useState<{id: string, name: string}[]>([]);
   const [contactMethods, setContactMethods] = useState<string[]>([]);
-  const [colors, setColors] = useState<string[]>([]);
+  const [colors, setColors] = useState<string[]>([
+    'Branco',
+    'Preto',
+    'Prata',
+    'Cinza',
+    'Vermelho',
+    'Azul',
+    'Verde',
+    'Amarelo',
+    'Laranja',
+    'Marrom',
+    'Bege',
+    'Dourado',
+    'Roxo',
+    'Rosa',
+    'Vinho'
+  ]);
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [suppliers, setSuppliers] = useState<{id: string, name: string}[]>([]);
 
@@ -264,7 +280,24 @@ export default function Appointment() {
         setSuppliers(suppliersData);
       }
 
-      // Buscar veículos para extrair cores
+      const defaultColors = [
+        'Branco',
+        'Preto',
+        'Prata',
+        'Cinza',
+        'Vermelho',
+        'Azul',
+        'Verde',
+        'Amarelo',
+        'Laranja',
+        'Marrom',
+        'Bege',
+        'Dourado',
+        'Roxo',
+        'Rosa',
+        'Vinho'
+      ];
+
       const vehiclesResponse = await fetch(`https://cvfacwfkbcgmnfuqorky.supabase.co/rest/v1/vehicles?company_id=eq.${user.company_id}&select=color&order=color.asc`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -276,7 +309,10 @@ export default function Appointment() {
       if (vehiclesResponse.ok) {
         const vehiclesData = await vehiclesResponse.json();
         const uniqueColors = [...new Set(vehiclesData.map((v: any) => v.color).filter(Boolean))] as string[];
-        setColors(uniqueColors);
+        const allColors = [...new Set([...defaultColors, ...uniqueColors])].sort();
+        setColors(allColors);
+      } else {
+        setColors(defaultColors);
       }
 
       // Opções fixas
