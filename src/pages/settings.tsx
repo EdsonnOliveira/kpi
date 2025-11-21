@@ -86,6 +86,35 @@ export default function Settings() {
   const [currentSecondaryColor, setCurrentSecondaryColor] = useState('#0C1F2B');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [departments, setDepartments] = useState<string[]>([
+    'Vendas',
+    'Pós-vendas',
+    'Peças e Acessórios',
+    'Serviços',
+    'Financeiro',
+    'Administrativo',
+    'Marketing',
+    'Recursos Humanos',
+    'TI'
+  ]);
+  const [positions, setPositions] = useState<string[]>([
+    'Gerente de Vendas',
+    'Vendedor',
+    'Consultor de Vendas',
+    'Gerente de Pós-vendas',
+    'Técnico',
+    'Mecânico',
+    'Assessor de Peças',
+    'Gerente Financeiro',
+    'Analista Financeiro',
+    'Contador',
+    'Assistente Administrativo',
+    'Gerente Administrativo',
+    'Analista de Marketing',
+    'Coordenador de Marketing',
+    'Analista de RH',
+    'Coordenador de TI'
+  ]);
 
   // Configurações do Supabase
   const SUPABASE_URL = 'https://cvfacwfkbcgmnfuqorky.supabase.co';
@@ -417,6 +446,46 @@ export default function Settings() {
       if (response.ok) {
         const data = await response.json();
         setUsers(data);
+        
+        const existingDepartments = [...new Set(data.map((u: User) => u.department).filter(Boolean))] as string[];
+        const existingPositions = [...new Set(data.map((u: User) => u.position).filter(Boolean))] as string[];
+        
+        const defaultDepartments = [
+          'Vendas',
+          'Pós-vendas',
+          'Peças e Acessórios',
+          'Serviços',
+          'Financeiro',
+          'Administrativo',
+          'Marketing',
+          'Recursos Humanos',
+          'TI'
+        ];
+        
+        const defaultPositions = [
+          'Gerente de Vendas',
+          'Vendedor',
+          'Consultor de Vendas',
+          'Gerente de Pós-vendas',
+          'Técnico',
+          'Mecânico',
+          'Assessor de Peças',
+          'Gerente Financeiro',
+          'Analista Financeiro',
+          'Contador',
+          'Assistente Administrativo',
+          'Gerente Administrativo',
+          'Analista de Marketing',
+          'Coordenador de Marketing',
+          'Analista de RH',
+          'Coordenador de TI'
+        ];
+        
+        const allDepartments = [...new Set([...defaultDepartments, ...existingDepartments])].sort();
+        const allPositions = [...new Set([...defaultPositions, ...existingPositions])].sort();
+        
+        setDepartments(allDepartments);
+        setPositions(allPositions);
       } else {
         setError('Erro ao carregar usuários');
       }
@@ -641,7 +710,7 @@ export default function Settings() {
           work_schedule: [],
           password: ""
         });
-        fetchUsers();
+        await fetchUsers();
 
         setTimeout(() => {
           setSuccessMessage("");
@@ -775,7 +844,7 @@ export default function Settings() {
         work_schedule: [],
         password: ""
       });
-      fetchUsers();
+      await fetchUsers();
 
       setTimeout(() => {
         setSuccessMessage("");
@@ -1198,22 +1267,32 @@ export default function Settings() {
               }}
               placeholder="(00) 00000-0000"
             />
-            <Input
+            <Select
               label="Cargo"
-              type="text"
               name="position"
               value={userForm.position}
               onChange={(e) => setUserForm({...userForm, position: e.target.value})}
-              placeholder="Cargo/Função"
-            />
-            <Input
+            >
+              <option value="">Selecione o cargo</option>
+              {positions.map((position) => (
+                <option key={position} value={position}>
+                  {position}
+                </option>
+              ))}
+            </Select>
+            <Select
               label="Departamento"
-              type="text"
               name="department"
               value={userForm.department}
               onChange={(e) => setUserForm({...userForm, department: e.target.value})}
-              placeholder="Departamento"
-            />
+            >
+              <option value="">Selecione o departamento</option>
+              {departments.map((department) => (
+                <option key={department} value={department}>
+                  {department}
+                </option>
+              ))}
+            </Select>
             {!editingUserId && (
               <Input
                 label="Senha"
