@@ -39,6 +39,7 @@ interface AttendanceFormData {
 
 export default function AttendanceForm() {
   const router = useRouter();
+  const { edit } = router.query;
   const { user, isAuthenticated, isLoading: authLoading, authenticatedFetch } = useAuth();
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -478,6 +479,16 @@ export default function AttendanceForm() {
     setIsQueueEnabled(!!(record.queue_brand || record.queue_model));
   };
 
+  // useEffect para carregar registro para edição quando houver parâmetro edit na URL
+  useEffect(() => {
+    if (edit && attendanceForms.length > 0) {
+      const recordToEdit = attendanceForms.find(form => form.id === edit);
+      if (recordToEdit) {
+        editRecord(recordToEdit);
+      }
+    }
+  }, [edit, attendanceForms]);
+
   // Função para deletar registro
   const deleteRecord = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir esta ficha de atendimento?')) {
@@ -539,6 +550,10 @@ export default function AttendanceForm() {
 
   // Função para cancelar edição/criação
   const cancelForm = () => {
+    if (edit && router.query.edit) {
+      router.push(`/appointment?id=${edit}`);
+      return;
+    }
     setIsCreatingNew(false);
     setIsEditing(false);
     setSelectedRecord(null);
@@ -1038,7 +1053,7 @@ export default function AttendanceForm() {
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-semibold text-gray-900">
-                Novo Cliente
+                {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
               </h3>
               <button
                 onClick={handleCancel}

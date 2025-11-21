@@ -2587,19 +2587,14 @@ export default function Appointment() {
                     <button
                       onClick={() => {
                         if (clientData?.id) {
-                          router.push(`/customer-details?id=${clientData.id}`);
+                          router.push(`/attendance-form?edit=${clientData.id}`);
                         } else {
-                          alert('ID do cliente não encontrado');
+                          alert('ID do atendimento não encontrado');
                         }
                       }}
                       className="px-6 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors"
                     >
                       Editar Cliente
-                    </button>
-                    <button
-                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      Agendar Atendimento
                     </button>
                   </div>
                 </div>
